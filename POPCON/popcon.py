@@ -1,6 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import os
+from pathlib import Path
+
+# Create figures directory if it doesn't exist
+figures_dir = Path(__file__).parent / 'figures'
+figures_dir.mkdir(exist_ok=True)
 
 # ============================================================================
 # INPUT PARAMETERS - MODIFY THESE
@@ -345,15 +351,19 @@ def create_full_popcon(B_max=B_max_default, R_M=R_M_default, beta_c=beta_c_defau
 if __name__ == "__main__":
     # Create single full-size POPCON
     fig_single = create_full_popcon(B_max_default, R_M_default, beta_c_default)
+    fig_single.savefig(figures_dir / 'full_popcon.png')
 
     # Create grid plots using the single fixed parameter values
     fig1 = create_popcon_grid(R_M_array_1, B_max_array_1, 'R_M', 'B_max',
                                'beta_c', fixed_beta_c)
+    fig1.savefig(figures_dir / 'grid_R_M_B_max.png')
 
     fig2 = create_popcon_grid(beta_c_array_2, B_max_array_2, 'beta_c', 'B_max',
                                'R_M', fixed_R_M)
+    fig2.savefig(figures_dir / 'grid_beta_c_B_max.png')
 
     fig3 = create_popcon_grid(R_M_array_3, beta_c_array_3, 'R_M', 'beta_c',
                                'B_max', fixed_B_max)
+    fig3.savefig(figures_dir / 'grid_R_M_beta_c.png')
 
     plt.show()
