@@ -295,7 +295,6 @@ for target_idx, Rm_target in enumerate(target_Rm):
                 if len(interpolated_values) > 0:
                     new_curve[energy_idx] = np.mean(interpolated_values)
 
-                if energy_idx % 200 == 0 and len(interpolated_values) > 0:
     combined_data[f'd_{target_names[target_idx]}'] = new_curve
 
     valid_points = np.sum(~np.isnan(new_curve))
@@ -435,7 +434,7 @@ if len(ratios_45_90) >= 2:
         fitted_ratios_all[Rm] = fitted_ratio
 else:
     fitted_ratios_all = {}
-    a_ratio, b_ratio = np.nan, np.nan
+    a_ratio, b_ratio, r_squared = np.nan, np.nan, np.nan
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
@@ -471,7 +470,7 @@ if fitted_ratios_all:
     fit_Rm_plot = np.array(sorted(fitted_ratios_all.keys()))
     fit_ratios_plot = np.array([fitted_ratios_all[Rm] for Rm in fit_Rm_plot])
     ax2.plot(fit_Rm_plot, fit_ratios_plot, 'r-', linewidth=2,
-            label=f'Fit: {a_ratio:.3f} + {b_ratio:.3f}×log₁₀(Rm)')
+            label=f'Fit: {a_ratio:.3f} + {b_ratio:.3f}×log₁₀(Rm)\nR² = {r_squared:.4f}')
 
     interp_Rm = [Rm for Rm in fit_Rm_plot if Rm not in ratios_45_90]
     interp_ratios = [fitted_ratios_all[Rm] for Rm in interp_Rm]
@@ -526,3 +525,214 @@ for Rm in sorted(Rm_values_all):
 
 df_analysis = pd.DataFrame(analysis_data)
 df_analysis.to_csv('OCR/analysis_C_vs_Rm_120keV.csv', index=False)
+
+# ============================================================================
+# Additional Analysis: C@90° vs log(Rm) at Eb=100keV
+# ============================================================================
+
+# Find the closest energy index to 100 keV
+target_energy_100 = 100.0
+energy_diff_100 = np.abs(x_common - target_energy_100)
+target_energy_idx_100 = np.argmin(energy_diff_100)
+actual_energy_100 = x_common[target_energy_idx_100]
+
+# Extract C@90° values at 100 keV for all Rm values
+C_90deg_100kev = {}
+for Rm in Rm_values_all:
+    col_name = f'd_Rm{Rm}'
+    if col_name in combined_data:
+        d_val = combined_data[col_name][target_energy_idx_100]
+        if not np.isnan(d_val):
+            C_90deg_100kev[Rm] = d_val
+
+# Create plot of C@90° vs log(Rm) at 100 keV
+fig_log, ax_log = plt.subplots(figsize=(10, 7))
+
+if C_90deg_100kev:
+    Rm_array = np.array(list(C_90deg_100kev.keys()))
+    C_array = np.array(list(C_90deg_100kev.values()))
+    log_Rm_array = np.log10(Rm_array)
+
+    # Plot the data
+    ax_log.plot(log_Rm_array, C_array, 'bo-', linewidth=2, markersize=8,
+                label=f'C@90° at Eb={actual_energy_100:.1f} keV')
+
+    # Add annotations
+    for Rm, C_val in C_90deg_100kev.items():
+        log_Rm = np.log10(Rm)
+        ax_log.annotate(f'Rm={Rm}\nC={C_val:.3f}', (log_Rm, C_val),
+                       textcoords="offset points", xytext=(0, 10), ha='center',
+                       fontsize=8)
+
+    # Fit a linear relationship: C = a + b*log10(Rm)
+    coeffs_log = np.polyfit(log_Rm_array, C_array, 1)
+    b_log, a_log = coeffs_log[0], coeffs_log[1]
+
+    # Calculate R-squared
+    C_predicted = a_log + b_log * log_Rm_array
+    ss_res = np.sum((C_array - C_predicted) ** 2)
+    ss_tot = np.sum((C_array - np.mean(C_array)) ** 2)
+    r_squared_log = 1 - (ss_res / ss_tot)
+
+    # Plot the fit
+    log_Rm_fit = np.linspace(log_Rm_array.min(), log_Rm_array.max(), 100)
+    C_fit = a_log + b_log * log_Rm_fit
+    ax_log.plot(log_Rm_fit, C_fit, 'r--', linewidth=2,
+                label=f'Fit: C = {a_log:.3f} + {b_log:.3f}×log₁₀(Rm)\nR² = {r_squared_log:.4f}')
+
+    ax_log.set_xlabel('log₁₀(Rm)', fontsize=12, fontweight='bold')
+    ax_log.set_ylabel('C@90° (confinement parameter)', fontsize=12, fontweight='bold')
+    ax_log.set_title(f'C@90° vs log₁₀(Rm) at Eb={actual_energy_100:.1f} keV',
+                     fontsize=14, fontweight='bold')
+    ax_log.grid(True, alpha=0.3)
+    ax_log.legend(fontsize=11)
+
+    try:
+        plt.tight_layout()
+        plt.savefig('OCR/C_vs_logRm_100keV.png', dpi=150, bbox_inches='tight')
+        plt.close()
+        gc.collect()
+        print(f"\n✓ Saved C@90° vs log(Rm) plot at Eb={actual_energy_100:.1f} keV")
+        print(f"  Fit: C = {a_log:.3f} + {b_log:.3f}×log₁₀(Rm)")
+        print(f"  R² = {r_squared_log:.4f}")
+    except Exception as e:
+        print(f"Warning: Error in C vs log(Rm) plotting: {e}")
+        plt.close('all')
+else:
+    print("Warning: No C@90° data available at 100 keV")
+
+# Save C@90° vs Rm data at 100 keV to CSV
+analysis_100kev = {
+    'Rm': [],
+    'log10_Rm': [],
+    'C_90deg_100keV': []
+}
+
+for Rm in sorted(Rm_values_all):
+    if Rm in C_90deg_100kev:
+        analysis_100kev['Rm'].append(Rm)
+        analysis_100kev['log10_Rm'].append(np.log10(Rm))
+        analysis_100kev['C_90deg_100keV'].append(C_90deg_100kev[Rm])
+
+df_100kev = pd.DataFrame(analysis_100kev)
+df_100kev.to_csv('OCR/C_vs_logRm_100keV.csv', index=False)
+print(f"✓ Saved analysis data to OCR/C_vs_logRm_100keV.csv")
+
+# ============================================================================
+# C@45° vs log(Rm) at Eb=100keV
+# ============================================================================
+
+# Calculate C@45° = C@90° × ratio_45_90 × 0.1
+C_45deg_100kev = {}
+if C_90deg_100kev and fitted_ratios_all:
+    for Rm in C_90deg_100kev.keys():
+        if Rm in fitted_ratios_all:
+            C_45deg_100kev[Rm] = C_90deg_100kev[Rm] * fitted_ratios_all[Rm] * 0.1
+
+# Create two-panel plot of C@45° vs log(Rm) and vs Rm at 100 keV
+fig_45, (ax_log, ax_lin) = plt.subplots(1, 2, figsize=(16, 7))
+
+if C_45deg_100kev:
+    Rm_array_45 = np.array(list(C_45deg_100kev.keys()))
+    C_array_45 = np.array(list(C_45deg_100kev.values()))
+    log_Rm_array_45 = np.log10(Rm_array_45)
+
+    # ========================================================================
+    # LEFT PANEL: C@45° vs log₁₀(Rm)
+    # ========================================================================
+
+    # Plot the data
+    ax_log.plot(log_Rm_array_45, C_array_45, 'ro-', linewidth=2, markersize=8,
+                label=f'C@45° at Eb={actual_energy_100:.1f} keV')
+
+    # Add annotations
+    for Rm, C_val in C_45deg_100kev.items():
+        log_Rm = np.log10(Rm)
+        ax_log.annotate(f'Rm={Rm}\nC={C_val:.4f}', (log_Rm, C_val),
+                       textcoords="offset points", xytext=(0, 10), ha='center',
+                       fontsize=8)
+
+    # Fit a linear relationship: C = a + b*log10(Rm)
+    coeffs_45 = np.polyfit(log_Rm_array_45, C_array_45, 1)
+    b_45, a_45 = coeffs_45[0], coeffs_45[1]
+
+    # Calculate R-squared
+    C_predicted_45 = a_45 + b_45 * log_Rm_array_45
+    ss_res_45 = np.sum((C_array_45 - C_predicted_45) ** 2)
+    ss_tot_45 = np.sum((C_array_45 - np.mean(C_array_45)) ** 2)
+    r_squared_45 = 1 - (ss_res_45 / ss_tot_45)
+
+    # Plot the fit
+    log_Rm_fit_45 = np.linspace(log_Rm_array_45.min(), log_Rm_array_45.max(), 100)
+    C_fit_45 = a_45 + b_45 * log_Rm_fit_45
+    ax_log.plot(log_Rm_fit_45, C_fit_45, 'g--', linewidth=2,
+                label=f'Fit: C = {a_45:.4f} + {b_45:.4f}×log₁₀(Rm)\nR² = {r_squared_45:.4f}')
+
+    ax_log.set_xlabel('log₁₀(Rm)', fontsize=12, fontweight='bold')
+    ax_log.set_ylabel('C@45° (loss coefficient) [s]', fontsize=12, fontweight='bold')
+    ax_log.set_title(f'C@45° vs log₁₀(Rm) at Eb={actual_energy_100:.1f} keV',
+                     fontsize=14, fontweight='bold')
+    ax_log.grid(True, alpha=0.3)
+    ax_log.legend(fontsize=10)
+
+    # ========================================================================
+    # RIGHT PANEL: C@45° vs Rm (linear scale)
+    # ========================================================================
+
+    # Plot the data
+    ax_lin.plot(Rm_array_45, C_array_45, 'bo-', linewidth=2, markersize=8,
+                label=f'C@45° at Eb={actual_energy_100:.1f} keV')
+
+    # Add annotations
+    for Rm, C_val in C_45deg_100kev.items():
+        ax_lin.annotate(f'Rm={Rm}\nC={C_val:.4f}', (Rm, C_val),
+                       textcoords="offset points", xytext=(0, 10), ha='center',
+                       fontsize=8)
+
+    # Plot the fit (converted back to linear Rm scale)
+    Rm_fit_45 = np.logspace(log_Rm_array_45.min(), log_Rm_array_45.max(), 100)
+    C_fit_linear_45 = a_45 + b_45 * np.log10(Rm_fit_45)
+    ax_lin.plot(Rm_fit_45, C_fit_linear_45, 'g--', linewidth=2,
+                label=f'Fit: C = {a_45:.4f} + {b_45:.4f}×log₁₀(Rm)\nR² = {r_squared_45:.4f}')
+
+    ax_lin.set_xlabel('Mirror Ratio (Rm)', fontsize=12, fontweight='bold')
+    ax_lin.set_ylabel('C@45° (loss coefficient) [s]', fontsize=12, fontweight='bold')
+    ax_lin.set_title(f'C@45° vs Rm at Eb={actual_energy_100:.1f} keV',
+                     fontsize=14, fontweight='bold')
+    ax_lin.grid(True, alpha=0.3)
+    ax_lin.legend(fontsize=10)
+
+    try:
+        plt.tight_layout()
+        plt.savefig('OCR/C45_vs_logRm_100keV.png', dpi=150, bbox_inches='tight')
+        plt.close()
+        gc.collect()
+        print(f"\n✓ Saved C@45° vs log(Rm) plot at Eb={actual_energy_100:.1f} keV")
+        print(f"  Fit: C@45° = {a_45:.4f} + {b_45:.4f}×log₁₀(Rm)")
+        print(f"  R² = {r_squared_45:.4f}")
+    except Exception as e:
+        print(f"Warning: Error in C@45° vs log(Rm) plotting: {e}")
+        plt.close('all')
+else:
+    print("Warning: No C@45° data available at 100 keV")
+
+# Save C@45° vs Rm data at 100 keV to CSV
+analysis_45deg_100kev = {
+    'Rm': [],
+    'log10_Rm': [],
+    'C_90deg_100keV': [],
+    'ratio_45_90': [],
+    'C_45deg_100keV': []
+}
+
+for Rm in sorted(Rm_values_all):
+    if Rm in C_45deg_100kev:
+        analysis_45deg_100kev['Rm'].append(Rm)
+        analysis_45deg_100kev['log10_Rm'].append(np.log10(Rm))
+        analysis_45deg_100kev['C_90deg_100keV'].append(C_90deg_100kev.get(Rm, np.nan))
+        analysis_45deg_100kev['ratio_45_90'].append(fitted_ratios_all.get(Rm, np.nan))
+        analysis_45deg_100kev['C_45deg_100keV'].append(C_45deg_100kev[Rm])
+
+df_45deg = pd.DataFrame(analysis_45deg_100kev)
+df_45deg.to_csv('OCR/C45_vs_logRm_100keV.csv', index=False)
+print(f"✓ Saved C@45° analysis data to OCR/C45_vs_logRm_100keV.csv")
