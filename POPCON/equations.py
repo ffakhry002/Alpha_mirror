@@ -265,8 +265,26 @@ def calculate_collisionality(E_b_100keV, n_20, L_plasma):
 # VORTEX STABILIZATION QUANTITIES
 # ============================================================================
 
-def calculate_end_plate_potential():
-    pass
+def calculate_ion_sound_gyroradius(E_b_100keV, B0):
+    """
+    Returns the ion Larmor radius, using the sound speed instead of
+    the thermal speed. Units in meters
+    """
+    ion_mass_eff = (2.014+3.016)/2 * const.atomic_mass # [kg]
+    Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    return np.sqrt(ion_mass_eff * Te) / (const.e * B0)
+
+def calculate_end_plate_potential(E_b_100keV, Rm_diamag):
+    """
+    Returns the bias potential to allow for vortex stabilization.
+    See Eq. 20 in Beklemishev and Eq. 3.8 in Endrizzi.
+    This comes from the requirement that the plasma has sufficient line-tying
+    to neutralize the polarization electric field of the flute mode.
+    Sources:
+    - Beklemishev et al, Fusion Sci. and Tech., 2010
+    - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
+    """
+    return
 
 def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
     """
@@ -281,11 +299,10 @@ def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
     ion_mass_eff = (2.014+3.016)/2 * const.atomic_mass # [kg]
     # TODO: Determine what length scale of field curvature is
     legnth_curv = 0.1*L_plasma
-    Te = 0.1*E_b_100keV*1e5*const.e # [J]
-    Ti = 0.67*E_b_100keV*1e5*const.e # [J]
-    sound_gyrorad = np.sqrt(ion_mass_eff * Te) / (const.e * B0)
+    ti_te_ratio = 20/3 # From Egedal 22
+    sound_gyrorad = calculate_ion_sound_gyroradius(E_b_100keV, B0)
     # Eq. 3.9 in Endrizzi
-    return 0.7*(a_0_min / sound_gyrorad)**2 * (legnth_curv / L_plasma) / np.sqrt(Ti/Te + 1)
+    return 0.7*(a_0_min / sound_gyrorad)**2 * (legnth_curv / L_plasma) / np.sqrt(ti_te_ratio + 1)
 
 # ============================================================================
 # POWER CALCULATIONS
