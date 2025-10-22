@@ -15,6 +15,7 @@ from equations import (
     calculate_a0_FLR_at_mirror,
     calculate_plasma_geometry_frustum,
     calculate_collisionality,
+    calculate_max_mirror_ratio_vortex,
     calculate_fusion_power,
     calculate_NBI_power,
     calculate_NWL,
@@ -43,6 +44,7 @@ from n20_Eb_inputs import (
     beta_levels,
     C_levels,
     R_M_levels,
+    max_R_M_vortex_levels,
     nu_levels,
     test_points_list,
     figures_dir,
@@ -144,6 +146,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     collisionality = calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
     print(f"Max collisionality: {np.nanmax(collisionality)}")
     print(f"Min collisionality: {np.nanmin(collisionality)}")
+
+    # Calculate mirror ratio limit for vortex stabilization
+    max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
+    print(f"Max Rm for vortex stabilization: {np.nanmin(max_R_M_vortex)}")
 
     # Calculate effective a0 limit - SIZE LIMIT ONLY ON a0_min (central)
     a0_eff_limit = a0_limit
@@ -258,6 +264,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            levels=R_M_levels, colors='lime', linewidths=2,
                            alpha=0.8, linestyles='--')
         ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
+
+    # Max R_M contours for vortex stabilization
+    if len(max_R_M_vortex_levels) > 0:
+        max_R_M_vortex_valid = max_R_M_vortex.copy()
+        max_R_M_vortex_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_RM = ax.contour(E_b100_grid, n_20_grid, max_R_M_vortex_valid,
+                           levels=max_R_M_vortex_levels, colors='magenta', linewidths=3,
+                           alpha=0.8, linestyles='-')
+        ax.clabel(CS_RM, inline=True, fontsize=10, fmt='R_M_max=%.0f')
 
     # Collisionality contours
     if len(nu_levels) > 0:

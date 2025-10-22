@@ -261,7 +261,31 @@ def calculate_collisionality(E_b_100keV, n_20, L_plasma):
     nu_ii = 1.2*np.sqrt(const.m_e / mass_T)*(0.15)**(3/2) * calculate_electron_ion_collision_freq(E_b_100keV, n_20)
     return nu_ii * L_plasma / v_ti
 
+# ============================================================================
+# VORTEX STABILIZATION QUANTITIES
+# ============================================================================
 
+def calculate_end_plate_potential():
+    pass
+
+def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
+    """
+    Returns the maximum mirror ratio to allow for vortex stabilization.
+    See Eq. 22 in Beklemishev and Eq. 3.9 in Endrizzi.
+    This comes from the requirement that the width of the vortex flow radius
+    be smaller than the plasma radius.
+    Sources:
+    - Beklemishev et al, Fusion Sci. and Tech., 2010
+    - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
+    """
+    ion_mass_eff = (2.014+3.016)/2 * const.atomic_mass # [kg]
+    # TODO: Determine what length scale of field curvature is
+    legnth_curv = 0.1*L_plasma
+    Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    Ti = 0.67*E_b_100keV*1e5*const.e # [J]
+    sound_gyrorad = np.sqrt(ion_mass_eff * Te) / (const.e * B0)
+    # Eq. 3.9 in Endrizzi
+    return 0.7*(a_0_min / sound_gyrorad)**2 * (legnth_curv / L_plasma) / np.sqrt(Ti/Te + 1)
 
 # ============================================================================
 # POWER CALCULATIONS

@@ -63,6 +63,9 @@ C_levels = np.array([])
 # Mirror ratio contour levels
 R_M_levels = np.array([4,5,6])
 
+# Max Mirror ratio for vortex stabilization contour levels
+max_R_M_vortex_levels = np.arange(0, 110, 10)
+
 # Collisionality contour levels
 nu_levels = np.array([])
 
