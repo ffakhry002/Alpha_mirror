@@ -274,17 +274,32 @@ def calculate_ion_sound_gyroradius(E_b_100keV, B0):
     Te = 0.1*E_b_100keV*1e5*const.e # [J]
     return np.sqrt(ion_mass_eff * Te) / (const.e * B0)
 
-def calculate_end_plate_potential(E_b_100keV, Rm_diamag):
+def calculate_curvature_length_scale(L_plasma):
     """
-    Returns the bias potential to allow for vortex stabilization.
+    We can't do this until we know the magnetic geometry
+    Smaller values impose stricter constraints on vortex
+    confinement, so for now assume 0.1*L_plasma.
+    """
+    # TODO: Determine what length scale of field curvature is
+    return 0.1*L_plasma
+
+
+def calculate_end_plate_voltage(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
+    """
+    Returns the bias potential normalized to Te (e*phi/Te) to allow for vortex stabilization.
     See Eq. 20 in Beklemishev and Eq. 3.8 in Endrizzi.
-    This comes from the requirement that the plasma has sufficient line-tying
-    to neutralize the polarization electric field of the flute mode.
+    This comes from the requirement that the field lines are closed.
     Sources:
     - Beklemishev et al, Fusion Sci. and Tech., 2010
     - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
-    """
-    return
+    """ 
+    legnth_curv = calculate_curvature_length_scale(L_plasma)
+    Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    ti_te_ratio = 20/3 # From Egedal 22
+    sound_gyrorad = calculate_ion_sound_gyroradius(E_b_100keV, B0)
+    voltage = 4 * Rm_diamag**2 * (ti_te_ratio + 1)**(3/2)
+    voltage *= sound_gyrorad**3 * L_plasma**2 / (a_0_min**2 * legnth_curv**3)
+    return voltage
 
 def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
     """
@@ -296,9 +311,7 @@ def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
     - Beklemishev et al, Fusion Sci. and Tech., 2010
     - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
     """
-    ion_mass_eff = (2.014+3.016)/2 * const.atomic_mass # [kg]
-    # TODO: Determine what length scale of field curvature is
-    legnth_curv = 0.1*L_plasma
+    legnth_curv = calculate_curvature_length_scale(L_plasma)
     ti_te_ratio = 20/3 # From Egedal 22
     sound_gyrorad = calculate_ion_sound_gyroradius(E_b_100keV, B0)
     # Eq. 3.9 in Endrizzi

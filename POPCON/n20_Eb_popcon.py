@@ -15,6 +15,7 @@ from equations import (
     calculate_a0_FLR_at_mirror,
     calculate_plasma_geometry_frustum,
     calculate_collisionality,
+    calculate_end_plate_voltage,
     calculate_max_mirror_ratio_vortex,
     calculate_fusion_power,
     calculate_NBI_power,
@@ -45,6 +46,7 @@ from n20_Eb_inputs import (
     C_levels,
     R_M_levels,
     max_R_M_vortex_levels,
+    voltage_levels,
     nu_levels,
     test_points_list,
     figures_dir,
@@ -146,6 +148,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     collisionality = calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
     print(f"Max collisionality: {np.nanmax(collisionality)}")
     print(f"Min collisionality: {np.nanmin(collisionality)}")
+
+    # Calculate end-plug voltage bias for vortex stabilization
+    end_plate_voltate = calculate_end_plate_voltage(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    print(f"Max Voltage: {np.nanmax(end_plate_voltate)}")
+    print(f"Min Voltage: {np.nanmin(end_plate_voltate)}")
 
     # Calculate mirror ratio limit for vortex stabilization
     max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
@@ -273,6 +280,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            levels=max_R_M_vortex_levels, colors='magenta', linewidths=3,
                            alpha=0.8, linestyles='-')
         ax.clabel(CS_RM, inline=True, fontsize=10, fmt='R_M_max=%.0f')
+
+    # end plate voltage contours
+    if len(voltage_levels) > 0:
+        voltage_valid = end_plate_voltate.copy()
+        voltage_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_V = ax.contour(E_b100_grid, n_20_grid, voltage_valid,
+                           levels=voltage_levels, colors='silver', linewidths=3,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_V, inline=True, fontsize=10, fmt='$e\\phi/T_e$=%.3f')
 
     # Collisionality contours
     if len(nu_levels) > 0:
