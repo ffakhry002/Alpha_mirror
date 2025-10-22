@@ -283,12 +283,22 @@ def calculate_curvature_length_scale(L_plasma):
     # TODO: Determine what length scale of field curvature is
     return 0.1*L_plasma
 
-
-def calculate_end_plate_voltage(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
+def calculate_voltage_field_reversal(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
     """
-    Returns the bias potential normalized to Te (e*phi/Te) to allow for vortex stabilization.
+    Returns the minimum applied bias potential normalized to Te (e*phi/Te) 
+    to allow for vortex stabilization from the requirement that the radial
+    electric field can be reversed. See Eq. 23 in Beklemishev.
+    Sources:
+    - Beklemishev et al, Fusion Sci. and Tech., 2010
+    """
+    alpha = 5 # Quality of ambipolar confinement
+    return 2*alpha*Rm_diamag / calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma)
+
+def calculate_voltage_closed_lines(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
+    """
+    Returns the bias potential normalized to Te (e*phi/Te) to allow for vortex stabilization
+    from the requirement that flow lines are closed.
     See Eq. 20 in Beklemishev and Eq. 3.8 in Endrizzi.
-    This comes from the requirement that the field lines are closed.
     Sources:
     - Beklemishev et al, Fusion Sci. and Tech., 2010
     - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)

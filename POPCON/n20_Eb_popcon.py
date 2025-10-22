@@ -15,7 +15,8 @@ from equations import (
     calculate_a0_FLR_at_mirror,
     calculate_plasma_geometry_frustum,
     calculate_collisionality,
-    calculate_end_plate_voltage,
+    calculate_voltage_closed_lines,
+    calculate_voltage_field_reversal,
     calculate_max_mirror_ratio_vortex,
     calculate_fusion_power,
     calculate_NBI_power,
@@ -149,10 +150,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     print(f"Max collisionality: {np.nanmax(collisionality)}")
     print(f"Min collisionality: {np.nanmin(collisionality)}")
 
-    # Calculate end-plug voltage bias for vortex stabilization
-    end_plate_voltate = calculate_end_plate_voltage(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
-    print(f"Max Voltage: {np.nanmax(end_plate_voltate)}")
-    print(f"Min Voltage: {np.nanmin(end_plate_voltate)}")
+    # Calculate end-plate voltage bias for vortex stabilization
+    voltage_cl = calculate_voltage_closed_lines(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    print(f"Max Voltage for flow closure: {np.nanmax(voltage_cl)}")
+    print(f"Min Voltage for flow closure: {np.nanmin(voltage_cl)}")
+    voltage_fr = calculate_voltage_field_reversal(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    print(f"Max Voltage for field reversal: {np.nanmax(voltage_fr)}")
+    print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
+    end_plate_voltate = np.maximum(voltage_cl, voltage_fr)
+
 
     # Calculate mirror ratio limit for vortex stabilization
     max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
@@ -286,7 +292,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         voltage_valid = end_plate_voltate.copy()
         voltage_valid[mask_gray | mask_black | mask_white] = np.nan
         CS_V = ax.contour(E_b100_grid, n_20_grid, voltage_valid,
-                           levels=voltage_levels, colors='silver', linewidths=3,
+                           levels=voltage_levels, colors='#a0a0a0', linewidths=3,
                            alpha=1.0, linestyles='-')
         ax.clabel(CS_V, inline=True, fontsize=10, fmt='$e\\phi/T_e$=%.3f')
 
