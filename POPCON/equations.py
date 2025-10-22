@@ -5,6 +5,7 @@ Updated to use energy-dependent loss coefficient with double interpolation
 import numpy as np
 from pathlib import Path
 from scipy.interpolate import interp1d
+import scipy.constants as const
 import pandas as pd
 
 # ============================================================================
@@ -217,6 +218,51 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho=25.0):
     vessel_surface_area = 2 * A_frustum + A_cylinder
 
     return L_plasma, V_plasma, vessel_surface_area
+
+# ============================================================================
+# COLLISIONAL QUANTITIES
+# ============================================================================
+
+def calculate_coulomb_logarithm(E_b_100keV, n_20):
+    """
+    Calculates the Coulomb logarithm from equation 9.36 in Freidberg
+    Fusion Energy. Maxwellian approximation for ions and electrons from Egedal22
+    """
+    # Electron temperature is roughly 1/10th the injected beam energy
+    Te_keV = 10 * E_b_100keV
+    return np.log(4.9e7 * Te_keV**(3/2) / np.sqrt(n_20))
+
+def calculate_electron_ion_collision_freq(E_b_100keV, n_20):
+    """
+    Calculates the electron ion collion frequency from Eq. 9.51
+    in Freidberg Fusion Energy
+    """
+    # Use handy formula for electron plasma frequency (Chen 4.26)
+    omega_pe = 1.8e11*np.pi * np.sqrt(n_20)
+    log_lambda = calculate_coulomb_logarithm(E_b_100keV, n_20)
+    return omega_pe*log_lambda / (np.sqrt(3)*np.exp(log_lambda))
+
+def calculate_collisionality(E_b_100keV, n_20, L_plasma):
+    """
+    The collisionality nu_* = nu_ii * L / v_ti is the ratio of the 
+    time it takes an ion to travel along the mirror machine vs the time it takes
+    to undergo a net 90 degree collision, evaluated at the effective beam temperature.
+    We use the ion thermal speed, not the sound speed, since Ti >> Te.
+    This also assumes the pitch-angle scattering frequency is similar to the collision frequency
+    Sources: 
+    - Egedal et al, Nucl. Fusion, 2022, Sec 3.1
+    - Schwartz et al, J. Plasma Phys., 2024, Sec 2.3
+    """
+    # Get triutium ion thermal velocity along magnetic field
+    Ti_joule = 2/3 * E_b_100keV * 1e5 * const.e
+    mass_T = 3.016 * const.atomic_mass # [kg]
+    v_ti = np.sqrt(Ti_joule / mass_T) # [m/s]
+    # Get ion-ion collision frequency
+    nu_ii = np.sqrt(const.m_e / mass_T) * calculate_electron_ion_collision_freq(E_b_100keV, n_20)
+    return nu_ii * L_plasma / v_ti
+
+
+
 # ============================================================================
 # POWER CALCULATIONS
 # ============================================================================
