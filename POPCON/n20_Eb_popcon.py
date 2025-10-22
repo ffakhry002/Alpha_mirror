@@ -14,6 +14,7 @@ from equations import (
     calculate_a0_FLR,
     calculate_a0_FLR_at_mirror,
     calculate_plasma_geometry_frustum,
+    calculate_collisionality,
     calculate_fusion_power,
     calculate_NBI_power,
     calculate_NWL,
@@ -42,6 +43,7 @@ from n20_Eb_inputs import (
     beta_levels,
     C_levels,
     R_M_levels,
+    nu_levels,
     test_points_list,
     figures_dir,
     figure_dpi,
@@ -137,6 +139,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate NWL
     NWL_beam_target = calculate_NWL(P_fusion_beam_target, vessel_surface_area)
+
+    # Calculate collisionality for sanity check
+    collisionality = calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
+    print(f"Max collisionality: {np.nanmax(collisionality)}")
+    print(f"Min collisionality: {np.nanmin(collisionality)}")
 
     # Calculate effective a0 limit - SIZE LIMIT ONLY ON a0_min (central)
     a0_eff_limit = a0_limit
@@ -251,6 +258,16 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            levels=R_M_levels, colors='lime', linewidths=2,
                            alpha=0.8, linestyles='--')
         ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
+
+    # Collisionality contours
+    if len(nu_levels) > 0:
+        nu_valid = collisionality.copy()
+        nu_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_NU = ax.contour(E_b100_grid, n_20_grid, nu_valid,
+                          levels=nu_levels, colors='tab:orange', linewidths=3,
+                          alpha=0.8, linestyles='-')
+        ax.clabel(CS_NU, inline=True, fontsize=8, fmt='$\\nu_{*}$=%.1e')
+
 
     # Formatting
     ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=14)
