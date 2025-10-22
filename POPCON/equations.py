@@ -257,8 +257,8 @@ def calculate_collisionality(E_b_100keV, n_20, L_plasma):
     Ti_joule = 2/3 * E_b_100keV * 1e5 * const.e
     mass_T = 3.016 * const.atomic_mass # [kg]
     v_ti = np.sqrt(Ti_joule / mass_T) # [m/s]
-    # Get ion-ion collision frequency
-    nu_ii = np.sqrt(const.m_e / mass_T) * calculate_electron_ion_collision_freq(E_b_100keV, n_20)
+    # Get ion-ion collision frequency using 9.52 in Friedberg and Te/Ti = 0.15
+    nu_ii = 1.2*np.sqrt(const.m_e / mass_T)*(0.15)**(3/2) * calculate_electron_ion_collision_freq(E_b_100keV, n_20)
     return nu_ii * L_plasma / v_ti
 
 
