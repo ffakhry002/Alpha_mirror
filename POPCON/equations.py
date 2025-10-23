@@ -187,33 +187,36 @@ def calculate_a0_FLR_at_mirror(E_b_100keV, B_mirror, N_25=1.0):
 
 def calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho=25.0):
     """
-    Frustum geometry for plasma volume and vessel surface area
-
-    Volume: V = (1/3)πN_ρa₀,min × (a₀,min² + a₀,min×a₀,FLR,Bm + a₀,FLR,Bm²)
-    Surface: A = 2.2π(a₀,min + a₀,FLR,Bm)√[(N_ρa₀,min/2)² + (a₀,min - a₀,FLR,Bm)²]
-
-    From LaTeX document Section 1.4 and 1.7
-    Note: 2.2 factor accounts for 10% standoff distance from plasma to vessel wall
+    Three-segment geometry: frustum-cylinder-frustum
+    10% standoff: vessel radius = 1.1 × plasma radius
     """
-    # Half-length of plasma
-    L_half = N_rho * a_0_min / 2
-
-    # Volume (two frustums joined at base)
-    V_plasma = (1/3) * np.pi * N_rho * a_0_min * (
-        a_0_min**2 + a_0_min * a_0_FLR_mirror + a_0_FLR_mirror**2
-    )
-
-    # Surface area (two frustums) - CORRECTED with 2.2 factor
-    vessel_surface_area = 2.0 * np.pi * (a_0_min + a_0_FLR_mirror) * np.sqrt(
-        L_half**2 + (a_0_min - a_0_FLR_mirror)**2
-    )
-
     # Total length
     L_plasma = N_rho * a_0_min
 
+    # Each segment is L/3
+    L_segment = L_plasma / 3
+
+    # Volume of one frustum (plasma only, no standoff in volume)
+    V_frustum = (1/3) * np.pi * L_segment * (
+        a_0_min**2 + a_0_FLR_mirror**2 + a_0_min * a_0_FLR_mirror
+    )
+
+    # Volume of cylinder (plasma only)
+    V_cylinder = np.pi * a_0_min**2 * L_segment
+
+    # Total plasma volume
+    V_plasma = V_cylinder + 2 * V_frustum
+
+    # Surface area - 10% standoff applied to radii
+    a0_min_vessel = 1.1 * a_0_min
+    a0_FLR_vessel = 1.1 * a_0_FLR_mirror
+
+    slant_height = np.sqrt(L_segment**2 + (a0_min_vessel - a0_FLR_vessel)**2)
+    A_frustum = np.pi * (a0_min_vessel + a0_FLR_vessel) * slant_height
+    A_cylinder = 2 * np.pi * a0_min_vessel * L_segment
+    vessel_surface_area = 2 * A_frustum + A_cylinder
+
     return L_plasma, V_plasma, vessel_surface_area
-
-
 # ============================================================================
 # POWER CALCULATIONS
 # ============================================================================
