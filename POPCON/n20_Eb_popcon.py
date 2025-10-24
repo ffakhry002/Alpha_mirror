@@ -403,6 +403,10 @@ if __name__ == "__main__":
     print(f"Using B_max={B_max_default}T, B_central={B_central_default}T")
     print(f"Vacuum mirror ratio R_M_vac = {B_max_default/B_central_default:.2f}")
 
+    print(f"Testing voltate calculation: BEAM voltage should be between 2 to 3")
+    voltage_beam = calculate_voltage_closed_lines(1, 2.5, 0.3, 10, 12)
+    voltage_beam = max(voltage_beam, calculate_voltage_field_reversal(1, 2.5, 0.3, 10, 12))
+    print(f"BEAM voltage required: {voltage_beam}")
 
     # Test multiple design points
     print("\nTesting design points...")
