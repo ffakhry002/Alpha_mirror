@@ -22,6 +22,9 @@ from equations import (
     calculate_NBI_power,
     calculate_NWL,
     calculate_Q,
+    calculate_Bw,
+    calculate_a_w,
+    calculate_heat_flux,
 )
 
 from n20_Eb_inputs import (
@@ -46,6 +49,9 @@ from n20_Eb_inputs import (
     beta_levels,
     C_levels,
     R_M_levels,
+    q_w_levels,
+    Bw_levels,
+    a_w_levels,
     max_R_M_vortex_levels,
     voltage_levels,
     nu_levels,
@@ -159,10 +165,19 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
     end_plate_voltate = np.maximum(voltage_cl, voltage_fr)
 
-
     # Calculate mirror ratio limit for vortex stabilization
     max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
     print(f"Max Rm for vortex stabilization: {np.nanmin(max_R_M_vortex)}")
+
+    # Calculate end plug magnetic field and heat flux
+    Bw = calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
+    print(f"Max Bw: {np.nanmax(Bw)}")
+    print(f"Min Bw: {np.nanmin(Bw)}")
+    q_w = calculate_heat_flux(P_NBI_required, Q, a_0_min, B_0_grid, Bw)
+    print(f"Max heat flux: {np.nanmax(q_w)}")
+    print(f"Min heat flux: {np.nanmin(q_w)}")
+    # Calculate end plug radius
+    a_w = calculate_a_w(a_0_min, B_0_grid, Bw)
 
     # Calculate effective a0 limit - SIZE LIMIT ONLY ON a0_min (central)
     a0_eff_limit = a0_limit
@@ -277,6 +292,32 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            levels=R_M_levels, colors='lime', linewidths=2,
                            alpha=0.8, linestyles='--')
         ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
+
+    # Heat flux contours
+    if len(q_w_levels) > 0:
+        q_w_valid = q_w.copy()
+        q_w_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_qw = ax.contour(E_b100_grid, n_20_grid, q_w_valid,
+                           levels=q_w_levels, colors='tab:orange', linewidths=3,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_qw, inline=True, fontsize=10, fmt='$q_w$=%.1f')
+
+    # End-plug magnetic field levels
+    if len(Bw_levels) > 0 and False:
+        Bw_valid = Bw.copy()
+        Bw_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_BW = ax.contour(E_b100_grid, n_20_grid, Bw_valid,
+                           levels=Bw_levels, colors='lime', linewidths=3,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.2f')
+
+    # if len(a_w_levels) > 0:
+    #     a_w_valid = a_w.copy()
+    #     a_w_valid[mask_gray | mask_black | mask_white] = np.nan
+    #     CS_AW = ax.contour(E_b100_grid, n_20_grid, a_w_valid,
+    #                        levels=a_w_levels, colors='magenta', linewidths=3,
+    #                        alpha=1.0, linestyles='-')
+    #     ax.clabel(CS_AW, inline=True, fontsize=10, fmt='$a_w$=%.2f')
 
     # Max R_M contours for vortex stabilization
     if len(max_R_M_vortex_levels) > 0:

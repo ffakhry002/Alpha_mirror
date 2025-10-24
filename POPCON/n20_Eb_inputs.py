@@ -61,16 +61,25 @@ beta_levels = np.array([])
 C_levels = np.array([])
 
 # Mirror ratio contour levels
-R_M_levels = np.array([4,5,6])
+R_M_levels = np.array([])
 
 # Vortex stabilization applied voltage contours
-voltage_levels = np.arange(0.05, 1.0, 0.1)
+voltage_levels = np.array([])
 
 # Max Mirror ratio for vortex stabilization contour levels
 max_R_M_vortex_levels = np.array([])
 
 # Collisionality contour levels
 nu_levels = np.array([])
+
+# End-plug magnetic field levels
+Bw_levels = np.arange(0, 1.0, 0.1)
+
+# End-plug radius levels
+a_w_levels = np.arange(0, 3.0, 0.5)
+
+# Heat flux contour levels
+q_w_levels = np.arange(1, 7, 2)
 
 test_points_list = [
     (1.0, 1.45),

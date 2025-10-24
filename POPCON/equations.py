@@ -16,7 +16,9 @@ import pandas as pd
 NEUTRON_FRACTION = 14.1 / 17.6
 
 # NBI efficiency (absorption × charge exchange)
+# TODO: These should be functions of beam energy
 ETA_ABS = 0.9   # Absorption efficiency
+ETA_HEAT = 0.9 # NBI heating efficiency (just absorption)
 NBI_EFFICIENCY = ETA_ABS
 
 # ============================================================================
@@ -389,3 +391,29 @@ def calculate_Q(P_fusion, P_NBI):
         Q = float(Q)
 
     return Q
+
+# ============================================================================
+# END PLUG HEAT FLUX QUANTITIES
+# ============================================================================
+
+def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=2):
+    """
+    Returns the magnetic field strength [T] at the end-plug wall based on
+    flux expansion and constraints on adiabadicity
+    """
+    return 7.3e-3 * Nwall**2 * E_b_100keV / (a_0_min**2 * B0)
+
+def calculate_a_w(a_0_min, B0, Bw):
+    """
+    Calculate the radius (and length) of the end-plug [m]
+    """
+    return a_0_min * np.sqrt(B0/Bw)
+
+
+def calculate_heat_flux(P_nbi, Q, a_0_min, B0, Bw):
+    """
+    Returns the heat flux at each end cell in MW/m^2
+    """
+    power_in = ETA_HEAT * P_nbi * (1 + Q/5)
+    wetted_area = 2*np.pi * a_0_min**2 * B0 / Bw 
+    return power_in / wetted_area  
