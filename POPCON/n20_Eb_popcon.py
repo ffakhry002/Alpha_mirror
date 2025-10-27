@@ -14,10 +14,17 @@ from equations import (
     calculate_a0_FLR,
     calculate_a0_FLR_at_mirror,
     calculate_plasma_geometry_frustum,
+    calculate_collisionality,
+    calculate_voltage_closed_lines,
+    calculate_voltage_field_reversal,
+    calculate_max_mirror_ratio_vortex,
     calculate_fusion_power,
     calculate_NBI_power,
     calculate_NWL,
     calculate_Q,
+    calculate_Bw,
+    calculate_a_w,
+    calculate_heat_flux,
 )
 
 from n20_Eb_inputs import (
@@ -42,6 +49,13 @@ from n20_Eb_inputs import (
     beta_levels,
     C_levels,
     R_M_levels,
+    q_w_levels,
+    qw_limit,
+    Bw_levels,
+    a_w_levels,
+    max_R_M_vortex_levels,
+    voltage_levels,
+    nu_levels,
     test_points_list,
     figures_dir,
     figure_dpi,
@@ -138,15 +152,40 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Calculate NWL
     NWL_beam_target = calculate_NWL(P_fusion_beam_target, vessel_surface_area)
 
+    # Calculate collisionality for sanity check
+    collisionality = calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
+    print(f"Max collisionality: {np.nanmax(collisionality)}")
+    print(f"Min collisionality: {np.nanmin(collisionality)}")
+
+    # Calculate end-plate voltage bias for vortex stabilization
+    voltage_cl = calculate_voltage_closed_lines(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    print(f"Max Voltage for flow closure: {np.nanmax(voltage_cl)}")
+    print(f"Min Voltage for flow closure: {np.nanmin(voltage_cl)}")
+    voltage_fr = calculate_voltage_field_reversal(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    print(f"Max Voltage for field reversal: {np.nanmax(voltage_fr)}")
+    print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
+    end_plate_voltate = np.maximum(voltage_cl, voltage_fr)
+
+    # Calculate mirror ratio limit for vortex stabilization
+    max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
+    print(f"Max Rm for vortex stabilization: {np.nanmin(max_R_M_vortex)}")
+
+    # Calculate end plug magnetic field and heat flux
+    Bw = calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
+    q_w = calculate_heat_flux(P_NBI_required, Q, a_0_min, B_0_grid, Bw)
+    # Calculate end plug radius
+    a_w = calculate_a_w(a_0_min, B_0_grid, Bw)
+
     # Calculate effective a0 limit - SIZE LIMIT ONLY ON a0_min (central)
     a0_eff_limit = a0_limit
 
     # Create masks for different regions
     mask_beta = n_20_grid > n_20_beta_limit
     mask_impractical = a_0_min > a0_limit  # Only limit central radius
+    mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < 0.0
 
-    mask_gray = mask_beta | mask_impractical
+    mask_gray = mask_beta | mask_impractical | mask_heat_flux
     mask_black = np.zeros_like(mask_gray, dtype=bool)
     mask_white = (~mask_gray) & mask_low_NWL
 
@@ -252,6 +291,66 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            alpha=0.8, linestyles='--')
         ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
 
+    # Heat flux limit contour
+    q_w_valid = q_w.copy()
+    q_w_valid[mask_impractical | mask_beta | mask_black | mask_white] = np.nan
+    ax.contour(E_b100_grid, n_20_grid, q_w_valid,
+               levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
+    ax.plot([], [], color='tab:orange', linewidth=3, linestyle='-',
+            label=f"$q_w$={qw_limit} MW/m^2 limit")
+    
+    # Heat flux contours
+    if len(q_w_levels) > 0:
+        CS_qw = ax.contour(E_b100_grid, n_20_grid, q_w_valid,
+                           levels=q_w_levels, colors='tab:orange', linewidths=2,
+                           alpha=1.0, linestyles='-', label='$q_w = 5$ MW/m$^2$ limit')
+        ax.clabel(CS_qw, inline=True, fontsize=12, fmt='$q_w$=%.1f')
+
+    # End-plug magnetic field levels
+    if len(Bw_levels) > 0:
+        Bw_valid = Bw.copy()
+        Bw_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_BW = ax.contour(E_b100_grid, n_20_grid, Bw_valid,
+                           levels=Bw_levels, colors='lime', linewidths=2,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.2f')
+
+    if len(a_w_levels) > 0:
+        a_w_valid = a_w.copy()
+        a_w_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_AW = ax.contour(E_b100_grid, n_20_grid, a_w_valid,
+                           levels=a_w_levels, colors='magenta', linewidths=2,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_AW, inline=True, fontsize=10, fmt='$a_w$=%.2f')
+
+    # Max R_M contours for vortex stabilization
+    if len(max_R_M_vortex_levels) > 0:
+        max_R_M_vortex_valid = max_R_M_vortex.copy()
+        max_R_M_vortex_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_RM = ax.contour(E_b100_grid, n_20_grid, max_R_M_vortex_valid,
+                           levels=max_R_M_vortex_levels, colors='magenta', linewidths=2,
+                           alpha=0.8, linestyles='-')
+        ax.clabel(CS_RM, inline=True, fontsize=10, fmt='R_M_max=%.0f')
+
+    # end plate voltage contours
+    if len(voltage_levels) > 0:
+        voltage_valid = end_plate_voltate.copy()
+        voltage_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_V = ax.contour(E_b100_grid, n_20_grid, voltage_valid,
+                           levels=voltage_levels, colors='#a0a0a0', linewidths=3,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_V, inline=True, fontsize=10, fmt='$e\\phi/T_e$=%.3f')
+
+    # Collisionality contours
+    if len(nu_levels) > 0:
+        nu_valid = collisionality.copy()
+        nu_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_NU = ax.contour(E_b100_grid, n_20_grid, nu_valid,
+                          levels=nu_levels, colors='tab:orange', linewidths=3,
+                          alpha=0.8, linestyles='-')
+        ax.clabel(CS_NU, inline=True, fontsize=8, fmt='$\\nu_{*}$=%.1e')
+
+
     # Formatting
     ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=14)
     ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=14)
@@ -349,6 +448,10 @@ if __name__ == "__main__":
     print(f"Using B_max={B_max_default}T, B_central={B_central_default}T")
     print(f"Vacuum mirror ratio R_M_vac = {B_max_default/B_central_default:.2f}")
 
+    print(f"Testing voltate calculation: BEAM voltage should be between 2 to 3")
+    voltage_beam = calculate_voltage_closed_lines(1, 2.5, 0.3, 10, 12)
+    voltage_beam = max(voltage_beam, calculate_voltage_field_reversal(1, 2.5, 0.3, 10, 12))
+    print(f"BEAM voltage required: {voltage_beam}")
 
     # Test multiple design points
     print("\nTesting design points...")

@@ -5,6 +5,7 @@ Updated to use energy-dependent loss coefficient with double interpolation
 import numpy as np
 from pathlib import Path
 from scipy.interpolate import interp1d
+import scipy.constants as const
 import pandas as pd
 
 # ============================================================================
@@ -15,7 +16,9 @@ import pandas as pd
 NEUTRON_FRACTION = 14.1 / 17.6
 
 # NBI efficiency (absorption × charge exchange)
+# TODO: These should be functions of beam energy
 ETA_ABS = 0.9   # Absorption efficiency
+ETA_HEAT = 0.9 # NBI heating efficiency (just absorption)
 NBI_EFFICIENCY = ETA_ABS
 
 # ============================================================================
@@ -217,6 +220,115 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho=25.0):
     vessel_surface_area = 2 * A_frustum + A_cylinder
 
     return L_plasma, V_plasma, vessel_surface_area
+
+# ============================================================================
+# COLLISIONAL QUANTITIES
+# ============================================================================
+
+def calculate_coulomb_logarithm(E_b_100keV, n_20):
+    """
+    Calculates the Coulomb logarithm from equation 9.36 in Freidberg
+    Fusion Energy. Maxwellian approximation for ions and electrons from Egedal22
+    """
+    # Electron temperature is roughly 1/10th the injected beam energy
+    Te_keV = 10 * E_b_100keV
+    return np.log(4.9e7 * Te_keV**(3/2) / np.sqrt(n_20))
+
+def calculate_electron_ion_collision_freq(E_b_100keV, n_20):
+    """
+    Calculates the electron ion collion frequency from Eq. 9.51
+    in Freidberg Fusion Energy
+    """
+    # Use handy formula for electron plasma frequency (Chen 4.26)
+    omega_pe = 1.8e11*np.pi * np.sqrt(n_20)
+    log_lambda = calculate_coulomb_logarithm(E_b_100keV, n_20)
+    return omega_pe*log_lambda / (np.sqrt(3)*np.exp(log_lambda))
+
+def calculate_collisionality(E_b_100keV, n_20, L_plasma):
+    """
+    The collisionality nu_* = nu_ii * L / v_ti is the ratio of the 
+    time it takes an ion to travel along the mirror machine vs the time it takes
+    to undergo a net 90 degree collision, evaluated at the effective beam temperature.
+    We use the ion thermal speed, not the sound speed, since Ti >> Te.
+    This also assumes the pitch-angle scattering frequency is similar to the collision frequency
+    Sources: 
+    - Egedal et al, Nucl. Fusion, 2022, Sec 3.1
+    - Schwartz et al, J. Plasma Phys., 2024, Sec 2.3
+    """
+    # Get triutium ion thermal velocity along magnetic field
+    Ti_joule = 2/3 * E_b_100keV * 1e5 * const.e
+    mass_T = 3.016 * const.atomic_mass # [kg]
+    v_ti = np.sqrt(Ti_joule / mass_T) # [m/s]
+    # Get ion-ion collision frequency using 9.52 in Friedberg and Te/Ti = 0.15
+    nu_ii = 1.2*np.sqrt(const.m_e / mass_T)*(0.15)**(3/2) * calculate_electron_ion_collision_freq(E_b_100keV, n_20)
+    return nu_ii * L_plasma / v_ti
+
+# ============================================================================
+# VORTEX STABILIZATION QUANTITIES
+# ============================================================================
+
+def calculate_ion_sound_gyroradius(E_b_100keV, B0):
+    """
+    Returns the ion Larmor radius, using the sound speed instead of
+    the thermal speed. Units in meters
+    """
+    ion_mass_eff = (2.014+3.016)/2 * const.atomic_mass # [kg]
+    Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    return np.sqrt(ion_mass_eff * Te) / (const.e * B0)
+
+def calculate_curvature_length_scale(L_plasma):
+    """
+    We can't do this until we know the magnetic geometry
+    Smaller values impose stricter constraints on vortex
+    confinement, so for now assume 0.1*L_plasma.
+    """
+    # TODO: Determine what length scale of field curvature is
+    return 0.1*L_plasma
+
+def calculate_voltage_field_reversal(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
+    """
+    Returns the minimum applied bias potential normalized to Te (e*phi/Te) 
+    to allow for vortex stabilization from the requirement that the radial
+    electric field can be reversed. See Eq. 23 in Beklemishev.
+    Sources:
+    - Beklemishev et al, Fusion Sci. and Tech., 2010
+    """
+    alpha = 5 # Quality of ambipolar confinement
+    return 2*alpha*Rm_diamag / calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma)
+
+def calculate_voltage_closed_lines(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
+    """
+    Returns the bias potential normalized to Te (e*phi/Te) to allow for vortex stabilization
+    from the requirement that flow lines are closed.
+    See Eq. 20 in Beklemishev and Eq. 3.8 in Endrizzi.
+    Sources:
+    - Beklemishev et al, Fusion Sci. and Tech., 2010
+    - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
+    """ 
+    legnth_curv = calculate_curvature_length_scale(L_plasma)
+    Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    ti_te_ratio = 20/3 # From Egedal 22
+    sound_gyrorad = calculate_ion_sound_gyroradius(E_b_100keV, B0)
+    voltage = 4 * Rm_diamag**2 * (ti_te_ratio + 1)**(3/2)
+    voltage *= sound_gyrorad**3 * L_plasma**2 / (a_0_min**2 * legnth_curv**3)
+    return voltage
+
+def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
+    """
+    Returns the maximum mirror ratio to allow for vortex stabilization.
+    See Eq. 22 in Beklemishev and Eq. 3.9 in Endrizzi.
+    This comes from the requirement that the width of the vortex flow radius
+    be smaller than the plasma radius.
+    Sources:
+    - Beklemishev et al, Fusion Sci. and Tech., 2010
+    - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
+    """
+    legnth_curv = calculate_curvature_length_scale(L_plasma)
+    ti_te_ratio = 20/3 # From Egedal 22
+    sound_gyrorad = calculate_ion_sound_gyroradius(E_b_100keV, B0)
+    # Eq. 3.9 in Endrizzi
+    return 0.7*(a_0_min / sound_gyrorad)**2 * (legnth_curv / L_plasma) / np.sqrt(ti_te_ratio + 1)
+
 # ============================================================================
 # POWER CALCULATIONS
 # ============================================================================
@@ -279,3 +391,29 @@ def calculate_Q(P_fusion, P_NBI):
         Q = float(Q)
 
     return Q
+
+# ============================================================================
+# END PLUG HEAT FLUX QUANTITIES
+# ============================================================================
+
+def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=1):
+    """
+    Returns the magnetic field strength [T] at the end-plug wall based on
+    flux expansion and constraints on adiabadicity
+    """
+    return 7.3e-3 * Nwall**2 * E_b_100keV / (a_0_min**2 * B0)
+
+def calculate_a_w(a_0_min, B0, Bw):
+    """
+    Calculate the radius (and length) of the end-plug [m]
+    """
+    return a_0_min * np.sqrt(B0/Bw)
+
+
+def calculate_heat_flux(P_nbi, Q, a_0_min, B0, Bw):
+    """
+    Returns the heat flux at each end cell in MW/m^2
+    """
+    power_in = ETA_HEAT * P_nbi * (1 + Q/5)
+    wetted_area = 2*np.pi * a_0_min**2 * B0 / Bw 
+    return power_in / wetted_area  
