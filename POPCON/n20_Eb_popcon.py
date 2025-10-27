@@ -50,6 +50,7 @@ from n20_Eb_inputs import (
     C_levels,
     R_M_levels,
     q_w_levels,
+    qw_limit,
     Bw_levels,
     a_w_levels,
     max_R_M_vortex_levels,
@@ -171,11 +172,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate end plug magnetic field and heat flux
     Bw = calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
-    print(f"Max Bw: {np.nanmax(Bw)}")
-    print(f"Min Bw: {np.nanmin(Bw)}")
     q_w = calculate_heat_flux(P_NBI_required, Q, a_0_min, B_0_grid, Bw)
-    print(f"Max heat flux: {np.nanmax(q_w)}")
-    print(f"Min heat flux: {np.nanmin(q_w)}")
     # Calculate end plug radius
     a_w = calculate_a_w(a_0_min, B_0_grid, Bw)
 
@@ -185,9 +182,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Create masks for different regions
     mask_beta = n_20_grid > n_20_beta_limit
     mask_impractical = a_0_min > a0_limit  # Only limit central radius
+    mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < 0.0
 
-    mask_gray = mask_beta | mask_impractical
+    mask_gray = mask_beta | mask_impractical | mask_heat_flux
     mask_black = np.zeros_like(mask_gray, dtype=bool)
     mask_white = (~mask_gray) & mask_low_NWL
 
@@ -293,38 +291,44 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            alpha=0.8, linestyles='--')
         ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
 
+    # Heat flux limit contour
+    q_w_valid = q_w.copy()
+    q_w_valid[mask_impractical | mask_beta | mask_black | mask_white] = np.nan
+    ax.contour(E_b100_grid, n_20_grid, q_w_valid,
+               levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
+    ax.plot([], [], color='tab:orange', linewidth=3, linestyle='-',
+            label=f"$q_w$={qw_limit} MW/m^2 limit")
+    
     # Heat flux contours
     if len(q_w_levels) > 0:
-        q_w_valid = q_w.copy()
-        q_w_valid[mask_gray | mask_black | mask_white] = np.nan
         CS_qw = ax.contour(E_b100_grid, n_20_grid, q_w_valid,
-                           levels=q_w_levels, colors='tab:orange', linewidths=3,
-                           alpha=1.0, linestyles='-')
-        ax.clabel(CS_qw, inline=True, fontsize=10, fmt='$q_w$=%.1f')
+                           levels=q_w_levels, colors='tab:orange', linewidths=2,
+                           alpha=1.0, linestyles='-', label='$q_w = 5$ MW/m$^2$ limit')
+        ax.clabel(CS_qw, inline=True, fontsize=12, fmt='$q_w$=%.1f')
 
     # End-plug magnetic field levels
-    if len(Bw_levels) > 0 and False:
+    if len(Bw_levels) > 0:
         Bw_valid = Bw.copy()
         Bw_valid[mask_gray | mask_black | mask_white] = np.nan
         CS_BW = ax.contour(E_b100_grid, n_20_grid, Bw_valid,
-                           levels=Bw_levels, colors='lime', linewidths=3,
+                           levels=Bw_levels, colors='lime', linewidths=2,
                            alpha=1.0, linestyles='-')
         ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.2f')
 
-    # if len(a_w_levels) > 0:
-    #     a_w_valid = a_w.copy()
-    #     a_w_valid[mask_gray | mask_black | mask_white] = np.nan
-    #     CS_AW = ax.contour(E_b100_grid, n_20_grid, a_w_valid,
-    #                        levels=a_w_levels, colors='magenta', linewidths=3,
-    #                        alpha=1.0, linestyles='-')
-    #     ax.clabel(CS_AW, inline=True, fontsize=10, fmt='$a_w$=%.2f')
+    if len(a_w_levels) > 0:
+        a_w_valid = a_w.copy()
+        a_w_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_AW = ax.contour(E_b100_grid, n_20_grid, a_w_valid,
+                           levels=a_w_levels, colors='magenta', linewidths=2,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_AW, inline=True, fontsize=10, fmt='$a_w$=%.2f')
 
     # Max R_M contours for vortex stabilization
     if len(max_R_M_vortex_levels) > 0:
         max_R_M_vortex_valid = max_R_M_vortex.copy()
         max_R_M_vortex_valid[mask_gray | mask_black | mask_white] = np.nan
         CS_RM = ax.contour(E_b100_grid, n_20_grid, max_R_M_vortex_valid,
-                           levels=max_R_M_vortex_levels, colors='magenta', linewidths=3,
+                           levels=max_R_M_vortex_levels, colors='magenta', linewidths=2,
                            alpha=0.8, linestyles='-')
         ax.clabel(CS_RM, inline=True, fontsize=10, fmt='R_M_max=%.0f')
 

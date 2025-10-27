@@ -24,8 +24,9 @@ NBI_EFFICIENCY = ETA_ABS
 E_b_min = 0.4            # Minimum beam energy [100 keV units]
 E_b_max = 1.2            # Maximum beam energy [100 keV units]
 
-# Practical engineering limit - minor radius constraint
+# Practical engineering limit
 a0_limit = 1.5              # Maximum minor radius [m]
+qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
 
 # Grid resolution
 n_grid_points = 500      # Number of grid points (higher = smoother but slower)
@@ -73,13 +74,13 @@ max_R_M_vortex_levels = np.array([])
 nu_levels = np.array([])
 
 # End-plug magnetic field levels
-Bw_levels = np.arange(0, 1.0, 0.1)
+Bw_levels = np.array([])
 
 # End-plug radius levels
-a_w_levels = np.arange(0, 3.0, 0.5)
+a_w_levels = np.array([])
 
 # Heat flux contour levels
-q_w_levels = np.arange(1, 7, 2)
+q_w_levels = np.array([])
 
 test_points_list = [
     (1.0, 1.45),

@@ -396,7 +396,7 @@ def calculate_Q(P_fusion, P_NBI):
 # END PLUG HEAT FLUX QUANTITIES
 # ============================================================================
 
-def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=2):
+def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=1):
     """
     Returns the magnetic field strength [T] at the end-plug wall based on
     flux expansion and constraints on adiabadicity
