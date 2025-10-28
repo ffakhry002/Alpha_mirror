@@ -44,6 +44,9 @@ NWL_levels = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5])  # Clean contour line
 # Minor radius contour levels [m]
 a0_levels = np.array([])
 
+# Minor radius contour levels [m]
+surface_area_levels = np.array([])
+
 # Fusion power contour levels [MW]
 P_fus_levels = np.arange(0, 8, 2)
 

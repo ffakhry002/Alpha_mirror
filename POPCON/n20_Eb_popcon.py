@@ -43,6 +43,7 @@ from n20_Eb_inputs import (
     NWL_levels,
     a0_levels,
     a0_limit,
+    surface_area_levels,
     P_fus_levels,
     P_NBI_levels,
     B_0_levels,
@@ -315,6 +316,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                            levels=Bw_levels, colors='lime', linewidths=2,
                            alpha=1.0, linestyles='-')
         ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.2f')
+
+    # Surface area contours levels
+    if len(surface_area_levels) > 0:
+        surface_area_valid = vessel_surface_area.copy()
+        surface_area_valid[mask_gray | mask_black | mask_white] = np.nan
+        CS_BW = ax.contour(E_b100_grid, n_20_grid, surface_area_valid,
+                           levels=surface_area_levels, colors='lime', linewidths=2,
+                           alpha=1.0, linestyles='-')
+        ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$S$=%.2f')
 
     if len(a_w_levels) > 0:
         a_w_valid = a_w.copy()
