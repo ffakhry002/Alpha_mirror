@@ -91,6 +91,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
     a_0_FLR = calculate_a0_FLR(E_b100_grid, B_0_grid, N_25)  # Use B_0 (diamagnetic)
     a_0_min = np.maximum(a_0_abs, a_0_FLR)
+    # a_0_min = np.maximum(a_0_min, 0.2*np.ones_like(a_0_min))
 
     # Calculate a0 at mirror field for frustum geometry - use B_max directly
     a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b100_grid, B_max, N_25)
@@ -237,15 +238,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         P_fusion_valid[mask_gray | mask_black | mask_white] = np.nan
 
         CS_Pfus = ax.contour(E_b100_grid, n_20_grid, P_fusion_valid,
-                             levels=P_fus_levels, colors='magenta', linewidths=1.5,
-                             alpha=0.8, linestyles='-')
-        ax.clabel(CS_Pfus, inline=True, fontsize=8, fmt='P_fus=%.0f MW')
+                             levels=P_fus_levels, colors='cyan', linewidths=3,
+                             alpha=1.0, linestyles='-')
+        ax.clabel(CS_Pfus, inline=True, fontsize=12, fmt='$P_{fus}$=%.0f MW')
 
     # NWL contour lines
     CS_NWL = ax.contour(E_b100_grid, n_20_grid, NWL_valid,
-                        levels=NWL_levels, colors='white', linewidths=1.0,
+                        levels=NWL_levels, colors='white', linewidths=2.0,
                         alpha=0.9, linestyles='-')
-    ax.clabel(CS_NWL, inline=True, fontsize=8, fmt='%.1f MW/m²')
+    ax.clabel(CS_NWL, inline=True, fontsize=12, fmt='%.1f MW/m²')
 
     # B₀ contours
     if len(B_0_levels) > 0:
@@ -260,9 +261,9 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     P_NBI_valid = P_NBI_required.copy()
     P_NBI_valid[mask_gray | mask_black | mask_white] = np.nan
     CS_PNBI = ax.contour(E_b100_grid, n_20_grid, P_NBI_valid,
-                         levels=P_NBI_levels, colors='red', linewidths=2.5,
+                         levels=P_NBI_levels, colors='red', linewidths=3,
                          alpha=1.0, linestyles='-')
-    ax.clabel(CS_PNBI, inline=True, fontsize=8, fmt='P_NBI=%.0f MW')
+    ax.clabel(CS_PNBI, inline=True, fontsize=12, fmt='P_NBI=%.0f MW')
 
     # Beta contours
     if len(beta_levels) > 0:
@@ -297,7 +298,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.contour(E_b100_grid, n_20_grid, q_w_valid,
                levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
     ax.plot([], [], color='tab:orange', linewidth=3, linestyle='-',
-            label=f"$q_w$={qw_limit} MW/m^2 limit")
+            label=f"$q_w$={qw_limit} MW/$m^2$ limit")
     
     # Heat flux contours
     if len(q_w_levels) > 0:
@@ -352,8 +353,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
 
     # Formatting
-    ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=14)
-    ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=14)
+    ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=16)
+    ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=16)
     ax.set_xlim([E_b_min, E_b_max])
     ax.set_ylim([0, n_20_max])
 
@@ -364,11 +365,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_xticks(x_ticks)
 
     # Legend
-    ax.legend(loc='lower left', fontsize=10)
+    ax.legend(loc='upper right', fontsize=16)
 
     # Colorbar
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label(r'NWL [MW/m²] (Beam-Target Fusion)', fontsize=12)
+    cbar.set_label(r'NWL [MW/m²] (Beam-Target Fusion)', fontsize=16)
     cbar.set_ticks(NWL_levels)
     cbar.ax.tick_params(labelsize=10)
 
@@ -378,8 +379,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_title(f'($B_{{max}}$={B_max}T, $B_{{central}}$={B_central:.1f}T, '
                  f'$R_{{M,vac}}$={R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
                  f'Frustum Geometry',
-                 fontsize=12, weight='bold')
-
+                 fontsize=18, weight='bold')
+    ax.set_ylim(0, 5)
     plt.tight_layout()
 
     return fig

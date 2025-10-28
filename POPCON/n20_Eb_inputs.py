@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 28.0         # Maximum mirror field [T]
-B_central_default = 7.0     # Central (conductor) field [T]
+B_central_default =7.0     # Central (conductor) field [T]
 beta_c_default = 0.3         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -42,15 +42,13 @@ NWL_background = np.linspace(0, max_NWL, 25)  # Fine resolution for smooth backg
 NWL_levels = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5])  # Clean contour lines
 
 # Minor radius contour levels [m]
-a0_levels = np.array([
-    0.1, 0.15, 0.2, 0.3, 0.5, 1.0
-])
+a0_levels = np.array([])
 
 # Fusion power contour levels [MW]
-P_fus_levels = np.array([])
+P_fus_levels = np.arange(0, 8, 2)
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array([10, 15, 20, 25, 30])
+P_NBI_levels = np.arange(10, 40, 6)
 
 # On-axis field contour levels [T]
 B_0_levels = np.array([0])

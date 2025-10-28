@@ -361,8 +361,8 @@ def calculate_NBI_power(n_20, V_plasma, E_b_100keV, Rm_vac, C_loss=None, efficie
 
     if np.isscalar(n_20) and np.isscalar(V_plasma) and np.isscalar(E_b_100keV):
         P_NBI = float(P_NBI)
-
-    return P_NBI
+    # Use fudge factor of 2 for Pnbi efficiency (see Derek's email)
+    return 2*P_NBI
 
 
 def calculate_NWL(P_fusion, vessel_surface_area, neutron_fraction=NEUTRON_FRACTION):
