@@ -26,6 +26,7 @@ E_b_max = 1.2            # Maximum beam energy [100 keV units]
 
 # Practical engineering limit
 a0_limit = 1.5              # Maximum minor radius [m]
+min_a0 = 0.1               # Minimum minor radius [m]
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
 
 # Grid resolution

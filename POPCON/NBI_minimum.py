@@ -17,11 +17,11 @@ from equations import (
 
 from n20_Eb_inputs import (
     B_max_default, B_central_default, beta_c_default, T_i_coeff,
-    N_25, N_rho, figures_dir, figure_dpi
+    N_25, N_rho, figures_dir, figure_dpi, min_a0
 )
 
 # Tradespace parameters
-E_b_keV_fixed = 60
+E_b_keV_fixed = 100
 R_M_min, R_M_max, R_M_resolution = 4, 10, 200
 NWL_targets = [0.75, 1.0, 1.25, 1.5]
 
@@ -147,6 +147,10 @@ def plot_four_panel_analysis(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
             try:
                 result = find_n20_for_target_NWL(E_b_keV, R_M, NWL_target, B_max, beta_c_default)
                 if result[1] is not None:
+                    # Check minimum a0 constraint
+                    a_0_min = max(result[3], result[4])  # max(a_0_abs, a_0_FLR)
+                    if a_0_min < min_a0:
+                        continue
                     P_NBI_array.append(result[1])
                     R_M_valid.append(R_M)
             except:
@@ -174,6 +178,9 @@ def plot_four_panel_analysis(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
 
                 if n_20 is not None:
                     a_0_min = np.maximum(a_0_abs, a_0_FLR)
+                    # Check minimum a0 constraint
+                    if a_0_min < min_a0:
+                        continue
                     a0_abs_array.append(a_0_abs)
                     a0_FLR_array.append(a_0_FLR)
                     a0_min_array.append(a_0_min)
@@ -221,6 +228,10 @@ def plot_four_panel_analysis(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
             try:
                 result = find_n20_for_target_NWL(E_b_keV, R_M, NWL_target, B_max, beta_c_default)
                 if result[0] is not None:
+                    # Check minimum a0 constraint
+                    a_0_min = max(result[3], result[4])  # max(a_0_abs, a_0_FLR)
+                    if a_0_min < min_a0:
+                        continue
                     n_20_array.append(result[0])
                     R_M_valid.append(R_M)
             except:
@@ -248,6 +259,10 @@ def plot_four_panel_analysis(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
             try:
                 result = find_n20_for_target_NWL(E_b_keV, R_M, NWL_target, B_max, beta_c_default)
                 if result[5] is not None:
+                    # Check minimum a0 constraint
+                    a_0_min = max(result[3], result[4])  # max(a_0_abs, a_0_FLR)
+                    if a_0_min < min_a0:
+                        continue
                     B_0_array.append(result[5])
                     R_M_valid.append(R_M)
             except:
@@ -287,6 +302,10 @@ def plot_PNBI_vs_B0(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
                 n_20, P_NBI, NWL_achieved, a_0_abs, a_0_FLR, B_0, B_0_conductor = result
 
                 if P_NBI is not None and B_0 is not None:
+                    # Check minimum a0 constraint
+                    a_0_min = max(a_0_abs, a_0_FLR)
+                    if a_0_min < min_a0:
+                        continue
                     B_0_array.append(B_0)
                     B_0_conductor_array.append(B_0_conductor)
                     R_M_array.append(R_M)
@@ -380,12 +399,16 @@ def find_minimum_PNBI_points(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
                 n_20, P_NBI, NWL_achieved, a_0_abs, a_0_FLR, B_0, B_0_conductor = result
 
                 if P_NBI is not None:
+                    a_0_min = max(a_0_abs, a_0_FLR)
+                    # Check minimum a0 constraint
+                    if a_0_min < min_a0:
+                        continue
+
                     P_NBI_array.append(P_NBI)
                     R_M_valid.append(R_M)
                     n_20_array.append(n_20)
                     B_0_array.append(B_0)
 
-                    a_0_min = max(a_0_abs, a_0_FLR)
                     a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
                     L_plasma, V_plasma, _ = calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho)
 
@@ -436,6 +459,9 @@ if __name__ == "__main__":
 
             if P_NBI is not None:
                 a_0_min = max(a_0_abs, a_0_FLR)
+                if a_0_min < min_a0:
+                    print(f"  R_M={R_M}: Below minimum a0 threshold ({a_0_min:.3f} < {min_a0:.2f} m)")
+                    continue
                 constraint = "Absorption" if a_0_abs > a_0_FLR else "FLR"
                 print(f"  R_M={R_M}: P_NBI={P_NBI:.1f} MW, a₀={a_0_min:.3f} m ({constraint})")
             else:

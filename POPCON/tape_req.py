@@ -1,124 +1,268 @@
 """
-Simple kA-m vs B_max calculation for R_M = 4, FLR-limited
-Just geometry - no need for density solving or fusion physics
+Corrected HTS tape requirements vs B_max
+Uses actual plasma physics with diamagnetic corrections at a specific operating point
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-# Physical constants
-mu_0 = 4 * np.pi * 1e-7  # H/m
+from equations import (
+    calculate_beta_local,
+    calculate_B0_with_diamagnetic,
+    calculate_a0_FLR_at_mirror,
+    calculate_plasma_geometry_frustum,
+    calculate_a0_absorption,
+    calculate_a0_FLR,
+    calculate_beta_limit,
+    calculate_fusion_power,
+    calculate_NBI_power,
+    calculate_NWL,
+    calculate_loss_coefficient
+)
 
-# Fixed parameters
-R_M = 4.0  # Mirror ratio
-E_b_keV = 60.0  # Beam energy
-E_b_100keV = E_b_keV / 100.0
+from n20_Eb_inputs import (
+    beta_c_default,
+    N_25,
+    N_rho,
+    T_i_coeff,
+    figures_dir,
+    figure_dpi
+)
 
-# FLR parameters
-N_25 = 1.0  # Normalized FLR parameter
-N_rho = 25.0  # Length parameter
 
-# Engineering margins
-r_baker = 1.0  # Breeder/TBM/shield radius [m]
-r_shield = 0.75  # End shield radius [m]
-
-# Scan B_max
-B_max_range = np.linspace(15, 35, 100)
-
-# Storage
-kAm_solenoid_array = []
-kAm_ring_array = []
-kAm_total_array = []
-a_0_center_array = []
-a_0_mirror_array = []
-B_central_array = []
-
-print(f"\n{'='*70}")
-print(f"kA-m vs B_max for Fixed Mirror Ratio")
-print(f"R_M = {R_M}, E_b = {E_b_keV} keV")
-print(f"FLR-limited: a_0 = N_25 * sqrt(E_b) / B_0")
-print(f"{'='*70}\n")
-
-print(f"{'B_max':>8} {'B_central':>10} {'a_0_center':>12} {'a_0_mirror':>12} "
-      f"{'kAm_sol':>10} {'kAm_rings':>10} {'kAm_total':>10}")
-print(f"{'[T]':>8} {'[T]':>10} {'[m]':>12} {'[m]':>12} "
-      f"{'[kA-m]':>10} {'[kA-m]':>10} {'[kA-m]':>10}")
-print(f"{'-'*80}")
-
-for B_max in B_max_range:
-    # Calculate B_central from mirror ratio
+def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.01):
+    """Solve for n_20 that gives target NWL using bisection method"""
+    E_b_100keV = E_b_keV / 100.0
     B_central = B_max / R_M
 
-    # For simplicity, assume no diamagnetic effect (or use B_central as B_0)
-    # This gives us the FLR radius at center
-    B_0 = B_central  # Simplified - could add diamagnetic correction if needed
+    n_20_beta_max = calculate_beta_limit(E_b_100keV, B_central, beta_c)
+    beta_local_max = calculate_beta_local(n_20_beta_max, E_b_100keV, B_central)
 
-    # FLR radius at center
-    a_0_FLR_center = N_25 * np.sqrt(E_b_100keV) / B_0
+    if beta_local_max is None or np.isnan(beta_local_max):
+        return None, None, None, None, None, None, None
 
-    # FLR radius at mirror
-    a_0_FLR_mirror = N_25 * np.sqrt(E_b_100keV) / B_max
+    B_0_max = calculate_B0_with_diamagnetic(B_central, beta_local_max)
+    a_0_abs_max = calculate_a0_absorption(E_b_100keV, n_20_beta_max)
+    a_0_FLR_max = calculate_a0_FLR(E_b_100keV, B_0_max, N_25)
+    a_0_min_max = np.maximum(a_0_abs_max, a_0_FLR_max)
 
-    # =================================================================
-    # SOLENOID kA-m
-    # =================================================================
-    # From your document:
-    # A-m_solenoid = (2π R B_central L) / μ₀
-    # where R = 1.1 * (a_0_min + a_0_FLR) / 2 + r_baker
-    #       L = N_ρ * a_0_min
+    a_0_FLR_mirror_max = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
+    L_plasma_max, V_plasma_max, vessel_surface_area_max = calculate_plasma_geometry_frustum(
+        a_0_min_max, a_0_FLR_mirror_max, N_rho
+    )
 
-    R_solenoid = 1.1 * (a_0_FLR_center + a_0_FLR_mirror) / 2 + r_baker
-    L_solenoid = N_rho * a_0_FLR_center
+    T_i = T_i_coeff * E_b_keV
+    P_fusion_max = calculate_fusion_power(E_b_100keV, n_20_beta_max, V_plasma_max, T_i)
+    NWL_max = calculate_NWL(P_fusion_max, vessel_surface_area_max)
 
-    Am_solenoid = (2 * np.pi * R_solenoid * B_central * L_solenoid) / mu_0
-    kAm_solenoid = Am_solenoid / 1000  # Convert to kA-m
+    if target_NWL > NWL_max * 1.01:
+        return None, None, None, None, None, None, None
 
-    # =================================================================
-    # END RING kA-m (for both rings)
-    # =================================================================
-    # From your document:
-    # A-m_ring = (4π R² B_max) / μ₀
-    # where R = 1.1 * a_0_FLR + r_shield
+    # Bisection method
+    tolerance, max_iterations = 1e-6, 100
+    n_20_search_max, n_20_search_min = n_20_beta_max, n_20_min
 
-    R_ring = 1.1 * a_0_FLR_mirror + r_shield
+    for iteration in range(max_iterations):
+        n_20_mid = (n_20_search_min + n_20_search_max) / 2
+        beta_local = calculate_beta_local(n_20_mid, E_b_100keV, B_central)
 
-    Am_ring_single = (4 * np.pi * R_ring**2 * B_max) / mu_0
-    kAm_ring_single = Am_ring_single / 1000
-    kAm_ring_total = 2 * kAm_ring_single  # Two end rings
+        if beta_local is None or np.isnan(beta_local):
+            n_20_search_max = n_20_mid
+            continue
 
-    # Total
-    kAm_total = kAm_solenoid + kAm_ring_total
+        B_0 = calculate_B0_with_diamagnetic(B_central, beta_local)
+        B_0_conductor = B_central
 
-    # Store
-    B_central_array.append(B_central)
-    a_0_center_array.append(a_0_FLR_center)
-    a_0_mirror_array.append(a_0_FLR_mirror)
-    kAm_solenoid_array.append(kAm_solenoid)
-    kAm_ring_array.append(kAm_ring_total)
-    kAm_total_array.append(kAm_total)
+        a_0_abs = calculate_a0_absorption(E_b_100keV, n_20_mid)
+        a_0_FLR = calculate_a0_FLR(E_b_100keV, B_0, N_25)
+        a_0_min = np.maximum(a_0_abs, a_0_FLR)
 
-    print(f"{B_max:>8.1f} {B_central:>10.2f} {a_0_FLR_center:>12.4f} {a_0_FLR_mirror:>12.4f} "
-          f"{kAm_solenoid:>10.1f} {kAm_ring_total:>10.1f} {kAm_total:>10.1f}")
+        a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
+        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+            a_0_min, a_0_FLR_mirror, N_rho
+        )
 
-# Convert to arrays
-B_max_range = np.array(B_max_range)
-kAm_total_array = np.array(kAm_total_array)
-kAm_solenoid_array = np.array(kAm_solenoid_array)
-kAm_ring_array = np.array(kAm_ring_array)
-a_0_center_array = np.array(a_0_center_array)
-a_0_mirror_array = np.array(a_0_mirror_array)
+        C_loss = calculate_loss_coefficient(E_b_100keV, R_M)
+        P_fusion = calculate_fusion_power(E_b_100keV, n_20_mid, V_plasma, T_i)
+        NWL_current = calculate_NWL(P_fusion, vessel_surface_area)
 
-print(f"\n{'='*70}")
-print(f"Summary:")
-print(f"{'='*70}")
-print(f"B_max range: {B_max_range[0]:.1f} - {B_max_range[-1]:.1f} T")
-print(f"kA-m range: {kAm_total_array[0]:.1f} - {kAm_total_array[-1]:.1f} kA-m")
-print(f"Solenoid fraction at B_max={B_max_range[0]:.0f}T: {100*kAm_solenoid_array[0]/kAm_total_array[0]:.1f}%")
-print(f"Solenoid fraction at B_max={B_max_range[-1]:.0f}T: {100*kAm_solenoid_array[-1]/kAm_total_array[-1]:.1f}%")
+        if abs(NWL_current - target_NWL) / target_NWL < tolerance:
+            P_NBI = calculate_NBI_power(n_20_mid, V_plasma, E_b_100keV, R_M, C_loss)
+            return n_20_mid, P_NBI, NWL_current, a_0_abs, a_0_FLR, B_0, B_0_conductor
 
-# =================================================================
-# CREATE PLOT - TRIANGLE LAYOUT
-# =================================================================
+        if NWL_current < target_NWL:
+            n_20_search_min = n_20_mid
+        else:
+            n_20_search_max = n_20_mid
+
+        if abs(n_20_search_max - n_20_search_min) < 1e-10:
+            break
+
+    return None, None, None, None, None, None, None
+
+# ============================================================================
+# PHYSICAL CONSTANTS
+# ============================================================================
+mu_0 = 4 * np.pi * 1e-7  # H/m
+
+# ============================================================================
+# OPERATING POINT SPECIFICATION
+# ============================================================================
+TARGET_NWL = 1.0        # Target neutron wall loading [MW/m²]
+E_B_KEV = 60.0          # Beam energy [keV]
+R_M_VAC = 4.0           # Vacuum mirror ratio
+BETA_C = beta_c_default # Beta limit
+
+# Engineering margins
+R_BAKER = 1.0          # Breeder/TBM/shield radius [m]
+R_SHIELD = 0.75        # End shield radius [m]
+
+# B_max scan range
+B_MAX_RANGE = np.array([15, 18, 20, 22, 25, 28, 30, 32, 35])
+
+print(f"\n{'='*80}")
+print(f"HTS TAPE REQUIREMENTS vs B_max")
+print(f"Operating Point: NWL={TARGET_NWL} MW/m², E_b={E_B_KEV} keV, R_M_vac={R_M_VAC}")
+print(f"Beta limit: β_c={BETA_C}")
+print(f"{'='*80}\n")
+
+# Storage arrays
+results = {
+    'B_max': [],
+    'B_central': [],
+    'B_0': [],
+    'n_20': [],
+    'beta': [],
+    'a_0_min': [],
+    'a_0_abs': [],
+    'a_0_FLR': [],
+    'a_0_FLR_mirror': [],
+    'L_plasma': [],
+    'V_plasma': [],
+    'regime': [],
+    'kAm_solenoid': [],
+    'kAm_rings': [],
+    'kAm_total': [],
+    'P_NBI': [],
+    'NWL_achieved': []
+}
+
+print(f"{'B_max':>7} {'B_cent':>7} {'B_0':>7} {'n_20':>7} {'β':>7} {'a_abs':>7} "
+      f"{'a_FLR':>7} {'a_min':>7} {'a_mir':>7} {'L_pl':>7} {'V_pl':>7} "
+      f"{'kAm_sol':>9} {'kAm_rng':>9} {'kAm_tot':>9} {'Reg':>5}")
+print(f"{'[T]':>7} {'[T]':>7} {'[T]':>7} {'[e20]':>7} {'':>7} {'[m]':>7} "
+      f"{'[m]':>7} {'[m]':>7} {'[m]':>7} {'[m]':>7} {'[m³]':>7} "
+      f"{'[kA-m]':>9} {'[kA-m]':>9} {'[kA-m]':>9} {'':>5}")
+print("-" * 105)
+
+for B_max in B_MAX_RANGE:
+    try:
+        # Calculate conductor field
+        B_central = B_max / R_M_VAC
+
+        # Solve for operating point at this B_max
+        result = find_n20_for_target_NWL(
+            E_B_KEV, R_M_VAC, TARGET_NWL, B_max, BETA_C
+        )
+
+        n_20, P_NBI, NWL_achieved, a_0_abs, a_0_FLR, B_0, B_0_conductor = result
+
+        if n_20 is None or np.isnan(P_NBI):
+            print(f"{B_max:>7.1f} - FAILED: Cannot achieve target NWL at this B_max")
+            continue
+
+        # Calculate beta
+        E_b_100keV = E_B_KEV / 100.0
+        beta = calculate_beta_local(n_20, E_b_100keV, B_central)
+
+        # Determine limiting constraint
+        a_0_min = max(a_0_abs, a_0_FLR)
+        regime = 'Abs' if a_0_abs > a_0_FLR else 'FLR'
+
+        # Calculate mirror radius
+        a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
+
+        # Get plasma geometry
+        L_plasma, V_plasma, vessel_surface = calculate_plasma_geometry_frustum(
+            a_0_min, a_0_FLR_mirror, N_rho
+        )
+
+        # ====================================================================
+        # CALCULATE TAPE REQUIREMENTS
+        # ====================================================================
+
+        # Solenoid: uses B_central (conductor field)
+        R_solenoid = 1.1 * (a_0_min + a_0_FLR_mirror) / 2 + R_BAKER
+        Am_solenoid = (2 * np.pi * R_solenoid * B_central * L_plasma) / mu_0
+        kAm_solenoid = Am_solenoid / 1000
+
+        # End rings: uses B_max at mirror
+        R_ring = 1.1 * a_0_FLR_mirror + R_SHIELD
+        Am_ring_single = (4 * np.pi * R_ring**2 * B_max) / mu_0
+        kAm_ring_single = Am_ring_single / 1000
+        kAm_rings_total = 2 * kAm_ring_single
+
+        # Total
+        kAm_total = kAm_solenoid + kAm_rings_total
+
+        # Store results
+        results['B_max'].append(B_max)
+        results['B_central'].append(B_central)
+        results['B_0'].append(B_0)
+        results['n_20'].append(n_20)
+        results['beta'].append(beta)
+        results['a_0_min'].append(a_0_min)
+        results['a_0_abs'].append(a_0_abs)
+        results['a_0_FLR'].append(a_0_FLR)
+        results['a_0_FLR_mirror'].append(a_0_FLR_mirror)
+        results['L_plasma'].append(L_plasma)
+        results['V_plasma'].append(V_plasma)
+        results['regime'].append(regime)
+        results['kAm_solenoid'].append(kAm_solenoid)
+        results['kAm_rings'].append(kAm_rings_total)
+        results['kAm_total'].append(kAm_total)
+        results['P_NBI'].append(P_NBI)
+        results['NWL_achieved'].append(NWL_achieved)
+
+        print(f"{B_max:>7.1f} {B_central:>7.2f} {B_0:>7.3f} {n_20:>7.4f} "
+              f"{beta:>7.5f} {a_0_abs:>7.4f} {a_0_FLR:>7.4f} {a_0_min:>7.4f} "
+              f"{a_0_FLR_mirror:>7.4f} {L_plasma:>7.2f} {V_plasma:>7.3f} "
+              f"{kAm_solenoid:>9.1f} {kAm_rings_total:>9.1f} {kAm_total:>9.1f} "
+              f"{regime:>5}")
+
+    except Exception as e:
+        print(f"{B_max:>7.1f} - ERROR: {str(e)}")
+        continue
+
+# Convert to numpy arrays
+for key in results:
+    results[key] = np.array(results[key])
+
+if len(results['B_max']) == 0:
+    print("\nERROR: No valid operating points found!")
+    sys.exit(1)
+
+print(f"\n{'='*80}")
+print(f"SUMMARY:")
+print(f"{'='*80}")
+print(f"Successfully calculated {len(results['B_max'])} operating points")
+print(f"B_max range: {results['B_max'][0]:.1f} - {results['B_max'][-1]:.1f} T")
+print(f"kA-m range: {results['kAm_total'][0]:.1f} - {results['kAm_total'][-1]:.1f} kA-m")
+print(f"Solenoid fraction at B_max={results['B_max'][0]:.0f}T: "
+      f"{100*results['kAm_solenoid'][0]/results['kAm_total'][0]:.1f}%")
+print(f"Solenoid fraction at B_max={results['B_max'][-1]:.0f}T: "
+      f"{100*results['kAm_solenoid'][-1]/results['kAm_total'][-1]:.1f}%")
+print(f"\nDiamagnetic effect at B_max={results['B_max'][0]:.0f}T: "
+      f"B_0/B_central = {results['B_0'][0]/results['B_central'][0]:.3f} "
+      f"({100*(1-results['B_0'][0]/results['B_central'][0]):.1f}% reduction)")
+print(f"Diamagnetic effect at B_max={results['B_max'][-1]:.0f}T: "
+      f"B_0/B_central = {results['B_0'][-1]/results['B_central'][-1]:.3f} "
+      f"({100*(1-results['B_0'][-1]/results['B_central'][-1]):.1f}% reduction)")
+
+# ============================================================================
+# CREATE PLOTS
+# ============================================================================
 
 fig = plt.figure(figsize=(16, 12))
 
@@ -127,53 +271,74 @@ ax1 = plt.subplot(2, 2, 1)  # Top left
 ax2 = plt.subplot(2, 2, 2)  # Top right
 ax3 = plt.subplot(2, 1, 2)  # Bottom center (spans full width)
 
-# Plot 1: Total kA-m vs B_max (TOP LEFT)
-ax1.plot(B_max_range, kAm_total_array, 'b-', linewidth=3, label='Total')
-ax1.plot(B_max_range, kAm_solenoid_array, 'r--', linewidth=2, label='Solenoid')
-ax1.plot(B_max_range, kAm_ring_array, 'g--', linewidth=2, label='End Rings (×2)')
+# ============================================================================
+# PLOT 1: Total kA-m vs B_max (TOP LEFT)
+# ============================================================================
+ax1.plot(results['B_max'], results['kAm_total'], 'b-', linewidth=3,
+         label='Total', marker='o', markersize=6)
+ax1.plot(results['B_max'], results['kAm_solenoid'], 'r--', linewidth=2,
+         label='Solenoid', marker='s', markersize=5)
+ax1.plot(results['B_max'], results['kAm_rings'], 'g--', linewidth=2,
+         label='End Rings (×2)', marker='^', markersize=5)
 ax1.set_xlabel('$B_{max}$ [T]', fontsize=13, fontweight='bold')
 ax1.set_ylabel('Conductor [kA-m]', fontsize=13, fontweight='bold')
 ax1.set_title('Total HTS Conductor vs Maximum Field', fontsize=13, fontweight='bold')
 ax1.legend(fontsize=11)
 ax1.grid(True, alpha=0.3)
 
-# Plot 2: Breakdown by component (TOP RIGHT)
-ax2.fill_between(B_max_range, 0, kAm_solenoid_array,
+# ============================================================================
+# PLOT 2: Breakdown by component (TOP RIGHT)
+# ============================================================================
+ax2.fill_between(results['B_max'], 0, results['kAm_solenoid'],
                   alpha=0.5, color='red', label='Solenoid')
-ax2.fill_between(B_max_range, kAm_solenoid_array, kAm_total_array,
+ax2.fill_between(results['B_max'], results['kAm_solenoid'], results['kAm_total'],
                   alpha=0.5, color='green', label='End Rings')
-ax2.plot(B_max_range, kAm_total_array, 'b-', linewidth=2, label='Total')
+ax2.plot(results['B_max'], results['kAm_total'], 'b-', linewidth=2.5,
+         label='Total', marker='o', markersize=5)
 ax2.set_xlabel('$B_{max}$ [T]', fontsize=13, fontweight='bold')
 ax2.set_ylabel('Conductor [kA-m]', fontsize=13, fontweight='bold')
 ax2.set_title('Conductor Breakdown by Component', fontsize=13, fontweight='bold')
 ax2.legend(fontsize=11)
 ax2.grid(True, alpha=0.3)
 
-# Plot 3: FLR-Limited Plasma Radii (BOTTOM CENTER - SQUARE)
-ax3.plot(B_max_range, a_0_center_array, 'b-', linewidth=3, label='$a_{0,FLR}$ (center)')
-ax3.plot(B_max_range, a_0_mirror_array, 'r-', linewidth=3, label='$a_{0,FLR}$ (mirror)')
+# ============================================================================
+# PLOT 3: Plasma Radii (BOTTOM CENTER)
+# ============================================================================
+ax3.plot(results['B_max'], results['a_0_min'], 'b-', linewidth=3,
+         label='$a_{0,min}$ (center)', marker='o', markersize=6)
+ax3.plot(results['B_max'], results['a_0_FLR_mirror'], 'r-', linewidth=3,
+         label='$a_{0,FLR}$ (mirror)', marker='s', markersize=6)
+ax3.plot(results['B_max'], results['a_0_abs'], 'g--', linewidth=2,
+         label='$a_{0,abs}$ (absorption)', marker='^', markersize=5, alpha=0.7)
+ax3.plot(results['B_max'], results['a_0_FLR'], 'm--', linewidth=2,
+         label='$a_{0,FLR}$ (center)', marker='d', markersize=5, alpha=0.7)
 ax3.set_xlabel('$B_{max}$ [T]', fontsize=13, fontweight='bold')
 ax3.set_ylabel('Minor Radius [m]', fontsize=13, fontweight='bold')
-ax3.set_title('FLR-Limited Plasma Radii', fontsize=13, fontweight='bold')
-ax3.legend(fontsize=11)
+ax3.set_title('Plasma Radii at Operating Point', fontsize=13, fontweight='bold')
+ax3.legend(fontsize=11, ncol=2)
 ax3.grid(True, alpha=0.3)
 
 # Make bottom plot more square-like
 ax3.set_aspect('auto')
 ax3_pos = ax3.get_position()
-# Center it and make it more square
 new_width = 0.5
-new_left = 0.25  # Center horizontally
+new_left = 0.25
 ax3.set_position([new_left, ax3_pos.y0, new_width, ax3_pos.height])
 
 fig.suptitle(f'HTS Conductor Requirements vs Maximum Field\n'
-             f'($R_M$ = {R_M}, $E_b$ = {E_b_keV} keV, FLR-limited, '
-             f'$r_{{baker}}$ = {r_baker} m, $r_{{shield}}$ = {r_shield} m)',
+             f'Operating Point: NWL={TARGET_NWL} MW/m², $E_b$={E_B_KEV} keV, '
+             f'$R_M$={R_M_VAC}, $\\beta_c$={BETA_C}\n'
+             f'(With diamagnetic corrections, $r_{{baker}}$={R_BAKER}m, '
+             f'$r_{{shield}}$={R_SHIELD}m)',
              fontsize=14, fontweight='bold', y=0.98)
 
 plt.tight_layout()
-plt.savefig('figures/kAm_vs_Bmax_simple.png', dpi=300, bbox_inches='tight')
 
-print(f"\n{'='*70}\n")
+output_path = figures_dir / 'tape_requirements_corrected.png'
+plt.savefig(output_path, dpi=figure_dpi, bbox_inches='tight')
+
+print(f"\n{'='*80}")
+print(f"Plot saved to: {output_path}")
+print(f"{'='*80}\n")
 
 plt.show()

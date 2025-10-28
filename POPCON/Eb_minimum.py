@@ -10,12 +10,13 @@ from equations import (
     calculate_loss_coefficient, calculate_beta_local, calculate_B0_with_diamagnetic,
     calculate_beta_limit, calculate_a0_absorption, calculate_a0_FLR,
     calculate_plasma_geometry_frustum, calculate_a0_FLR_at_mirror,
-    calculate_fusion_power, calculate_NBI_power, calculate_NWL
+    calculate_fusion_power, calculate_NBI_power, calculate_NWL,
+    get_dt_reactivity
 )
 
 from n20_Eb_inputs import (
     B_max_default, B_central_default, beta_c_default, T_i_coeff,
-    N_25, N_rho, figures_dir, figure_dpi
+    N_25, N_rho, figures_dir, figure_dpi, min_a0
 )
 
 # Analysis parameters
@@ -130,6 +131,11 @@ def find_optimal_Rm_for_Eb_NWL(E_b_keV, target_NWL, B_max, beta_c):
             if P_NBI is not None and not np.isnan(P_NBI):
                 # Calculate P_fusion at this point
                 a_0_min = max(a_0_abs, a_0_FLR)
+
+                # Skip if below minimum a0 threshold
+                if a_0_min < min_a0:
+                    continue
+
                 a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
                 L_plasma, V_plasma, _ = calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho)
                 P_fusion = calculate_fusion_power(E_b_100keV, n_20, V_plasma, T_i)
@@ -147,7 +153,7 @@ def find_optimal_Rm_for_Eb_NWL(E_b_keV, target_NWL, B_max, beta_c):
             continue
 
     if len(P_NBI_array) == 0:
-        return None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None, None
 
     # Find minimum P_NBI
     min_idx = np.argmin(P_NBI_array)
@@ -168,12 +174,15 @@ def find_optimal_Rm_for_Eb_NWL(E_b_keV, target_NWL, B_max, beta_c):
     a_0_FLR_opt = a_0_FLR_array[min_idx]
     regime = 'Absorption' if a_0_abs_opt > a_0_FLR_opt else 'FLR'
 
+    # Calculate a_0_FLR at mirror (B_max)
+    a_0_FLR_mirror_opt = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
+
     return (R_M_vacuum_optimal, R_M_diamagnetic_optimal, P_NBI_min, P_fusion_opt,
-            n_20_opt, a_0_opt, B_0_opt, B_0_conductor_opt, regime)
+            n_20_opt, a_0_opt, B_0_opt, B_0_conductor_opt, regime, a_0_FLR_mirror_opt)
 
 
 def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
-    """Create 3 subplots: P_NBI and R_M on top row, Q on bottom spanning full width"""
+    """Create 4 subplots: P_NBI, R_M, a0, and Q"""
 
     print(f"\n{'='*70}")
     print(f"OPTIMIZATION ANALYSIS: Finding minimum P_NBI for each (E_b, NWL)")
@@ -182,12 +191,12 @@ def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
     print(f"Scanning R_M from {R_M_scan_range[0]:.0f} to {R_M_scan_range[-1]:.0f}")
     print(f"{'='*70}\n")
 
-    # Create figure with 2x2 grid, bottom subplot spans both columns
-    # Adjust figure size to make bottom plot less stretched
+    # Create figure with 2x2 grid
     fig = plt.figure(figsize=(16, 12))
-    ax1 = plt.subplot(2, 2, 1)  # Top left
-    ax2 = plt.subplot(2, 2, 2)  # Top right
-    ax3 = plt.subplot(2, 1, 2)  # Bottom (spans full width)
+    ax1 = plt.subplot(2, 2, 1)  # Top left: P_NBI
+    ax2 = plt.subplot(2, 2, 2)  # Top right: R_M
+    ax3 = plt.subplot(2, 2, 3)  # Bottom left: a0
+    ax4 = plt.subplot(2, 2, 4)  # Bottom right: Q
 
     colors_nwl = plt.cm.viridis(np.linspace(0.15, 0.95, len(NWL_targets)))
 
@@ -204,19 +213,25 @@ def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
         R_M_diamagnetic_opt_array = []
         n_20_opt_array = []
         a_0_opt_array = []
+        a_0_FLR_mirror_array = []
         B_0_opt_array = []
         B_0_conductor_opt_array = []
         regime_array = []
+        reactivity_array = []
         E_b_valid = []
 
         for E_b_keV in E_b_range:
             result = find_optimal_Rm_for_Eb_NWL(E_b_keV, NWL_target, B_max, beta_c_default)
 
             if result[0] is not None:
-                R_M_vac_opt, R_M_dia_opt, P_NBI_min, P_fusion_opt, n_20_opt, a_0_opt, B_0_opt, B_0_cond_opt, regime = result
+                R_M_vac_opt, R_M_dia_opt, P_NBI_min, P_fusion_opt, n_20_opt, a_0_opt, B_0_opt, B_0_cond_opt, regime, a_0_FLR_mirror = result
 
                 # Calculate Q = P_fusion / P_NBI
                 Q = P_fusion_opt / P_NBI_min
+
+                # Calculate reactivity at T_i
+                T_i = T_i_coeff * E_b_keV
+                reactivity = get_dt_reactivity(T_i)
 
                 P_NBI_min_array.append(P_NBI_min)
                 P_fusion_opt_array.append(P_fusion_opt)
@@ -225,9 +240,11 @@ def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
                 R_M_diamagnetic_opt_array.append(R_M_dia_opt)
                 n_20_opt_array.append(n_20_opt)
                 a_0_opt_array.append(a_0_opt)
+                a_0_FLR_mirror_array.append(a_0_FLR_mirror)
                 B_0_opt_array.append(B_0_opt)
                 B_0_conductor_opt_array.append(B_0_cond_opt)
                 regime_array.append(regime)
+                reactivity_array.append(reactivity)
                 E_b_valid.append(E_b_keV)
 
                 print(f"  E_b={E_b_keV:.0f} keV: R_M_vac={R_M_vac_opt:.2f}, "
@@ -243,8 +260,10 @@ def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
             'R_M_diamagnetic_opt': np.array(R_M_diamagnetic_opt_array),
             'n_20_opt': np.array(n_20_opt_array),
             'a_0_opt': np.array(a_0_opt_array),
+            'a_0_FLR_mirror': np.array(a_0_FLR_mirror_array),
             'B_0_opt': np.array(B_0_opt_array),
             'B_0_conductor_opt': np.array(B_0_conductor_opt_array),
+            'reactivity': np.array(reactivity_array),
             'regime': regime_array
         }
 
@@ -256,8 +275,14 @@ def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
             # TOP RIGHT: R_M vs E_b (plot without label, we'll add custom legend)
             ax2.plot(E_b_valid, R_M_vacuum_opt_array, color=color, linewidth=3.5)
 
-            # BOTTOM: Q vs E_b
-            ax3.plot(E_b_valid, Q_array, color=color, linewidth=3.5,
+            # BOTTOM LEFT: a0 values (solid = a0_min, dashed = a0_FLR at mirror)
+            ax3.plot(E_b_valid, a_0_opt_array, color=color, linewidth=3, linestyle='-',
+                    label=f'NWL = {NWL_target} MW/m²')
+            ax3.plot(E_b_valid, a_0_FLR_mirror_array, color=color, linewidth=2.5, linestyle='--',
+                    alpha=0.7)
+
+            # BOTTOM RIGHT: Q vs E_b
+            ax4.plot(E_b_valid, Q_array, color=color, linewidth=3.5,
                     label=f'NWL = {NWL_target} MW/m²')
 
     # TOP LEFT: P_NBI vs E_b
@@ -293,12 +318,57 @@ def plot_PNBI_vs_Eb_optimization(B_max=B_max_default):
     ax2.legend(custom_lines, ['$R_M$ (vacuum)', '$B_0$ (conductor)'],
                loc='best', fontsize=11, framealpha=0.9)
 
-    # BOTTOM: Q vs E_b (full width)
+    # BOTTOM LEFT: a0 values (solid = a0_min, dashed = a0_FLR at mirror)
     ax3.set_xlabel('Beam Energy $E_b$ [keV]', fontsize=14, fontweight='bold')
-    ax3.set_ylabel('Fusion Gain $Q$ ($P_{fusion}/P_{NBI}$)', fontsize=14, fontweight='bold')
-    ax3.set_title('Fusion Gain vs Beam Energy', fontsize=14, fontweight='bold')
-    ax3.legend(loc='best', fontsize=11, framealpha=0.9)
+    ax3.set_ylabel('Minor Radius $a_0$ [m]', fontsize=14, fontweight='bold')
+    ax3.set_title('Plasma Radius vs Beam Energy', fontsize=14, fontweight='bold')
     ax3.grid(True, alpha=0.3, linestyle='--')
+
+    # Add twin axis for reactivity on bottom left plot
+    ax3_twin = ax3.twinx()
+
+    # Plot reactivity for each NWL (use same colors, dotted lines)
+    for NWL_target, color in zip(NWL_targets, colors_nwl):
+        data = all_results[NWL_target]
+        if len(data['E_b']) > 0:
+            ax3_twin.plot(data['E_b'], data['reactivity'], color=color,
+                         linewidth=2, linestyle=':', alpha=0.8)
+
+    ax3_twin.set_ylabel('Reactivity $\\langle\\sigma v\\rangle$ [m$^3$/s]', fontsize=14, fontweight='bold')
+    ax3_twin.tick_params(axis='y')
+
+    # Create custom legend for ax3
+    custom_lines_a0 = [Line2D([0], [0], color='gray', linewidth=3, linestyle='-'),
+                       Line2D([0], [0], color='gray', linewidth=2.5, linestyle='--', alpha=0.7),
+                       Line2D([0], [0], color='gray', linewidth=2, linestyle=':', alpha=0.8)]
+    ax3.legend(custom_lines_a0, ['$a_{0,min}$ (solid)', '$a_{0,FLR}$ at $B_{max}$ (dashed)',
+                                  'Reactivity $\\langle\\sigma v\\rangle$ (dotted)'],
+               loc='upper left', fontsize=11, framealpha=0.9)
+
+    # BOTTOM RIGHT: Q vs E_b with P_fusion on twin axis
+    ax4.set_xlabel('Beam Energy $E_b$ [keV]', fontsize=14, fontweight='bold')
+    ax4.set_ylabel('Fusion Gain $Q$ ($P_{fusion}/P_{NBI}$)', fontsize=14, fontweight='bold')
+    ax4.set_title('Fusion Gain vs Beam Energy', fontsize=14, fontweight='bold')
+    ax4.grid(True, alpha=0.3, linestyle='--')
+
+    # Add twin axis for P_fusion on bottom right plot
+    ax4_twin = ax4.twinx()
+
+    # Plot P_fusion for each NWL (use same colors, dashed lines)
+    for NWL_target, color in zip(NWL_targets, colors_nwl):
+        data = all_results[NWL_target]
+        if len(data['E_b']) > 0:
+            ax4_twin.plot(data['E_b'], data['P_fusion_opt'], color=color,
+                         linewidth=2.5, linestyle='--', alpha=0.6)
+
+    ax4_twin.set_ylabel('Fusion Power $P_{fusion}$ [MW]', fontsize=14, fontweight='bold')
+    ax4_twin.tick_params(axis='y')
+
+    # Create custom legend for ax4 with Q (solid) and P_fusion (dashed)
+    custom_lines_Q = [Line2D([0], [0], color='gray', linewidth=3.5, linestyle='-'),
+                      Line2D([0], [0], color='gray', linewidth=2.5, linestyle='--', alpha=0.6)]
+    ax4.legend(custom_lines_Q, ['$Q$ (solid)', '$P_{fusion}$ [MW] (dashed)'],
+               loc='upper left', fontsize=11, framealpha=0.9)
 
     # Main title
     fig.suptitle(f'Optimal Operating Points ($B_{{max}}$ = {B_max} T, $E_b$ scanned, $\\beta_c$ = {beta_c_default})',

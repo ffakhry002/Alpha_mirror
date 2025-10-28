@@ -246,12 +246,12 @@ def calculate_electron_ion_collision_freq(E_b_100keV, n_20):
 
 def calculate_collisionality(E_b_100keV, n_20, L_plasma):
     """
-    The collisionality nu_* = nu_ii * L / v_ti is the ratio of the 
+    The collisionality nu_* = nu_ii * L / v_ti is the ratio of the
     time it takes an ion to travel along the mirror machine vs the time it takes
     to undergo a net 90 degree collision, evaluated at the effective beam temperature.
     We use the ion thermal speed, not the sound speed, since Ti >> Te.
     This also assumes the pitch-angle scattering frequency is similar to the collision frequency
-    Sources: 
+    Sources:
     - Egedal et al, Nucl. Fusion, 2022, Sec 3.1
     - Schwartz et al, J. Plasma Phys., 2024, Sec 2.3
     """
@@ -287,7 +287,7 @@ def calculate_curvature_length_scale(L_plasma):
 
 def calculate_voltage_field_reversal(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
     """
-    Returns the minimum applied bias potential normalized to Te (e*phi/Te) 
+    Returns the minimum applied bias potential normalized to Te (e*phi/Te)
     to allow for vortex stabilization from the requirement that the radial
     electric field can be reversed. See Eq. 23 in Beklemishev.
     Sources:
@@ -304,7 +304,7 @@ def calculate_voltage_closed_lines(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag)
     Sources:
     - Beklemishev et al, Fusion Sci. and Tech., 2010
     - Endrizzi et al, J. Plasma Phy. 2023 (WHAM physics basis)
-    """ 
+    """
     legnth_curv = calculate_curvature_length_scale(L_plasma)
     Te = 0.1*E_b_100keV*1e5*const.e # [J]
     ti_te_ratio = 20/3 # From Egedal 22
@@ -415,5 +415,5 @@ def calculate_heat_flux(P_nbi, Q, a_0_min, B0, Bw):
     Returns the heat flux at each end cell in MW/m^2
     """
     power_in = ETA_HEAT * P_nbi * (1 + Q/5)
-    wetted_area = 2*np.pi * a_0_min**2 * B0 / Bw 
-    return power_in / wetted_area  
+    wetted_area = 2*np.pi * a_0_min**2 * B0 / Bw
+    return power_in / wetted_area
