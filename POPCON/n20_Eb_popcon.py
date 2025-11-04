@@ -315,7 +315,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         CS_BW = ax.contour(E_b100_grid, n_20_grid, Bw_valid,
                            levels=Bw_levels, colors='lime', linewidths=2,
                            alpha=1.0, linestyles='-')
-        ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.2f')
+        ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.3f')
 
     # Surface area contours levels
     if len(surface_area_levels) > 0:
@@ -463,6 +463,21 @@ if __name__ == "__main__":
     voltage_beam = calculate_voltage_closed_lines(1, 2.5, 0.3, 10, 12)
     voltage_beam = max(voltage_beam, calculate_voltage_field_reversal(1, 2.5, 0.3, 10, 12))
     print(f"BEAM voltage required: {voltage_beam}")
+
+    print(f"Testing voltate calculation: GDT voltage should be between 0.5 to 1.5")
+    voltage_gdt = calculate_voltage_closed_lines(0.25, 0.3, 0.13, 3, 30)
+    voltage_gdt = max(voltage_beam, calculate_voltage_field_reversal(0.25, 0.3, 0.13, 3, 30))
+    print(f"GDT voltage required: {voltage_gdt}")
+
+    # Vortex stabilization plot
+    # B0_scan = np.arange(0.5, 7.5, 0.5)
+    # a0_scan = calculate_a0_FLR(np.ones_like(B0_scan), B0_scan)
+    # voltage_test_closed = calculate_voltage_closed_lines(1, B0_scan, a0_scan, 25*a0_scan, B_max_default / B0_scan)
+    # voltage_test_reversed = calculate_voltage_field_reversal(1, B0_scan, a0_scan, 25*a0_scan, B_max_default / B0_scan)
+    # voltage_test = np.maximum(voltage_test_closed, voltage_test_reversed)
+    # plt.plot(B0_scan, voltage_test, marker='.')
+    # plt.yscale('linear')
+    # plt.show()
 
     # Test multiple design points
     print("\nTesting design points...")

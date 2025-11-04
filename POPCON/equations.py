@@ -119,7 +119,7 @@ def calculate_beta_local(n_20, E_b_100keV, B_central):
 
     Returns None if the discriminant is negative (physically impossible)
     """
-    discriminant = 1 - (12 * n_20 * E_b_100keV) / (B_central**2)
+    discriminant = 1 + (12 * n_20 * E_b_100keV) / (B_central**2)
 
     # Check if physically possible
     if np.any(discriminant < 0):
@@ -273,7 +273,8 @@ def calculate_ion_sound_gyroradius(E_b_100keV, B0):
     the thermal speed. Units in meters
     """
     ion_mass_eff = (2.014+3.016)/2 * const.atomic_mass # [kg]
-    Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    #Te = 0.1*E_b_100keV*1e5*const.e # [J]
+    Te = 180*const.e # For testing GDT
     return np.sqrt(ion_mass_eff * Te) / (const.e * B0)
 
 def calculate_curvature_length_scale(L_plasma):
@@ -282,8 +283,9 @@ def calculate_curvature_length_scale(L_plasma):
     Smaller values impose stricter constraints on vortex
     confinement, so for now assume 0.1*L_plasma.
     """
-    # TODO: Determine what length scale of field curvature is
-    return 0.1*L_plasma
+    # TODO: Determine what the plasma lengths are in terms
+    # of density vs magnetic field strength
+    return L_plasma
 
 def calculate_voltage_field_reversal(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
     """
@@ -294,7 +296,7 @@ def calculate_voltage_field_reversal(E_b_100keV, B0, a_0_min, L_plasma, Rm_diama
     - Beklemishev et al, Fusion Sci. and Tech., 2010
     """
     alpha = 5 # Quality of ambipolar confinement
-    return 2*alpha*Rm_diamag / calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma)
+    return alpha*Rm_diamag / calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma)
 
 def calculate_voltage_closed_lines(E_b_100keV, B0, a_0_min, L_plasma, Rm_diamag):
     """

@@ -66,7 +66,7 @@ C_levels = np.array([])
 R_M_levels = np.array([])
 
 # Vortex stabilization applied voltage contours
-voltage_levels = np.array([])
+voltage_levels = np.arange(0, 1.0, 0.01)
 
 # Max Mirror ratio for vortex stabilization contour levels
 max_R_M_vortex_levels = np.array([])
