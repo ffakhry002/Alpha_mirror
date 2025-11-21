@@ -5,8 +5,8 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 28.0         # Maximum mirror field [T]
-B_central_default = 7.0     # Central (conductor) field [T]
-beta_c_default = 0.3         # MHD stability limit
+B_central_default = 28.0/8    # Central (conductor) field [T]
+beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
 T_i_coeff = 2/3          # Ti = (2/3)E_b [keV]
@@ -25,8 +25,7 @@ E_b_min = 0.4            # Minimum beam energy [100 keV units]
 E_b_max = 1.2            # Maximum beam energy [100 keV units]
 
 # Practical engineering limit
-a0_limit = 1.5              # Maximum minor radius [m]
-min_a0 = 0.1               # Minimum minor radius [m]
+min_a0 = 0.1                # Minimum minor radius [m]
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
 
 # Grid resolution
@@ -34,7 +33,6 @@ n_grid_points = 500      # Number of grid points (higher = smoother but slower)
 
 # Q factor contour levels
 Q_levels = np.array([
-    0.23, 0.25
 ])
 
 # Neutron wall loading (NWL) levels
@@ -42,16 +40,20 @@ max_NWL = 3.5
 NWL_background = np.linspace(0, max_NWL, 25)  # Fine resolution for smooth background
 NWL_levels = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5])  # Clean contour lines
 
+# Fusion power background for POPCON
+max_P_fus = 25
+P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
+
 # Minor radius contour levels [m]
 a0_levels = np.array([
-    0.1, 0.15, 0.2, 0.3, 0.5, 1.0
+
 ])
 
 # Fusion power contour levels [MW]
 P_fus_levels = np.array([])
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array([10, 15, 20, 25, 30])
+P_NBI_levels = np.array([10, 20, 30, 40])
 
 # On-axis field contour levels [T]
 B_0_levels = np.array([0])
@@ -84,8 +86,8 @@ a_w_levels = np.array([])
 q_w_levels = np.array([])
 
 test_points_list = [
-    (1.0, 1.45),
-    (0.8, 0.5),
+    # (1.0, 1.45),
+    # (0.8, 0.5),
 
 ]
 

@@ -6,7 +6,7 @@ Uses actual plasma physics with diamagnetic corrections at a specific operating 
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-
+import sys
 from equations import (
     calculate_beta_local,
     calculate_B0_with_diamagnetic,
@@ -31,8 +31,8 @@ from n20_Eb_inputs import (
 )
 
 
-def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.01):
-    """Solve for n_20 that gives target NWL using bisection method"""
+def find_n20_for_target_Pfus(E_b_keV, R_M, target_Pfus, B_max, beta_c, n_20_min=0.01):
+    """Solve for n_20 that gives target fusion power using bisection method"""
     E_b_100keV = E_b_keV / 100.0
     B_central = B_max / R_M
 
@@ -40,7 +40,7 @@ def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.
     beta_local_max = calculate_beta_local(n_20_beta_max, E_b_100keV, B_central)
 
     if beta_local_max is None or np.isnan(beta_local_max):
-        return None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
 
     B_0_max = calculate_B0_with_diamagnetic(B_central, beta_local_max)
     a_0_abs_max = calculate_a0_absorption(E_b_100keV, n_20_beta_max)
@@ -54,10 +54,9 @@ def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.
 
     T_i = T_i_coeff * E_b_keV
     P_fusion_max = calculate_fusion_power(E_b_100keV, n_20_beta_max, V_plasma_max, T_i)
-    NWL_max = calculate_NWL(P_fusion_max, vessel_surface_area_max)
 
-    if target_NWL > NWL_max * 1.01:
-        return None, None, None, None, None, None, None
+    if target_Pfus > P_fusion_max * 1.01:
+        return None, None, None, None, None, None, None, None
 
     # Bisection method
     tolerance, max_iterations = 1e-6, 100
@@ -87,11 +86,11 @@ def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.
         P_fusion = calculate_fusion_power(E_b_100keV, n_20_mid, V_plasma, T_i)
         NWL_current = calculate_NWL(P_fusion, vessel_surface_area)
 
-        if abs(NWL_current - target_NWL) / target_NWL < tolerance:
+        if abs(P_fusion - target_Pfus) / target_Pfus < tolerance:
             P_NBI = calculate_NBI_power(n_20_mid, V_plasma, E_b_100keV, R_M, C_loss)
-            return n_20_mid, P_NBI, NWL_current, a_0_abs, a_0_FLR, B_0, B_0_conductor
+            return n_20_mid, P_NBI, P_fusion, NWL_current, a_0_abs, a_0_FLR, B_0, B_0_conductor
 
-        if NWL_current < target_NWL:
+        if P_fusion < target_Pfus:
             n_20_search_min = n_20_mid
         else:
             n_20_search_max = n_20_mid
@@ -99,7 +98,7 @@ def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.
         if abs(n_20_search_max - n_20_search_min) < 1e-10:
             break
 
-    return None, None, None, None, None, None, None
+    return None, None, None, None, None, None, None, None
 
 # ============================================================================
 # PHYSICAL CONSTANTS
@@ -109,21 +108,21 @@ mu_0 = 4 * np.pi * 1e-7  # H/m
 # ============================================================================
 # OPERATING POINT SPECIFICATION
 # ============================================================================
-TARGET_NWL = 1.0        # Target neutron wall loading [MW/m²]
-E_B_KEV = 60.0          # Beam energy [keV]
-R_M_VAC = 4.0           # Vacuum mirror ratio
-BETA_C = beta_c_default # Beta limit
+TARGET_PFUS = 2.0      # Target fusion power [MW]
+E_B_KEV = 100             # Beam energy [keV]
+R_M_VAC = 8.0             # Vacuum mirror ratio
+BETA_C = beta_c_default  # Beta limit
 
 # Engineering margins
-R_BAKER = 1.0          # Breeder/TBM/shield radius [m]
-R_SHIELD = 0.75        # End shield radius [m]
+R_BAKER = 0.6+0.28          # Breeder/TBM/shield radius [m]
+R_SHIELD = 0.6        # End shield radius [m]
 
 # B_max scan range
-B_MAX_RANGE = np.array([15, 18, 20, 22, 25, 28, 30, 32, 35])
+B_MAX_RANGE = np.array([16, 18, 20, 22, 24, 26, 28, 30])
 
 print(f"\n{'='*80}")
 print(f"HTS TAPE REQUIREMENTS vs B_max")
-print(f"Operating Point: NWL={TARGET_NWL} MW/m², E_b={E_B_KEV} keV, R_M_vac={R_M_VAC}")
+print(f"Operating Point: P_fus={TARGET_PFUS} MW, E_b={E_B_KEV} keV, R_M_vac={R_M_VAC}")
 print(f"Beta limit: β_c={BETA_C}")
 print(f"{'='*80}\n")
 
@@ -141,16 +140,17 @@ results = {
     'L_plasma': [],
     'V_plasma': [],
     'regime': [],
-    'kAm_solenoid': [],
-    'kAm_rings': [],
+    'kAm_central_magnets': [],
+    'kAm_end_magnets': [],
     'kAm_total': [],
     'P_NBI': [],
+    'P_fusion': [],
     'NWL_achieved': []
 }
 
 print(f"{'B_max':>7} {'B_cent':>7} {'B_0':>7} {'n_20':>7} {'β':>7} {'a_abs':>7} "
       f"{'a_FLR':>7} {'a_min':>7} {'a_mir':>7} {'L_pl':>7} {'V_pl':>7} "
-      f"{'kAm_sol':>9} {'kAm_rng':>9} {'kAm_tot':>9} {'Reg':>5}")
+      f"{'kAm_ctr':>9} {'kAm_end':>9} {'kAm_tot':>9} {'Reg':>5}")
 print(f"{'[T]':>7} {'[T]':>7} {'[T]':>7} {'[e20]':>7} {'':>7} {'[m]':>7} "
       f"{'[m]':>7} {'[m]':>7} {'[m]':>7} {'[m]':>7} {'[m³]':>7} "
       f"{'[kA-m]':>9} {'[kA-m]':>9} {'[kA-m]':>9} {'':>5}")
@@ -162,14 +162,14 @@ for B_max in B_MAX_RANGE:
         B_central = B_max / R_M_VAC
 
         # Solve for operating point at this B_max
-        result = find_n20_for_target_NWL(
-            E_B_KEV, R_M_VAC, TARGET_NWL, B_max, BETA_C
+        result = find_n20_for_target_Pfus(
+            E_B_KEV, R_M_VAC, TARGET_PFUS, B_max, BETA_C
         )
 
-        n_20, P_NBI, NWL_achieved, a_0_abs, a_0_FLR, B_0, B_0_conductor = result
+        n_20, P_NBI, P_fusion, NWL_achieved, a_0_abs, a_0_FLR, B_0, B_0_conductor = result
 
         if n_20 is None or np.isnan(P_NBI):
-            print(f"{B_max:>7.1f} - FAILED: Cannot achieve target NWL at this B_max")
+            print(f"{B_max:>7.1f} - FAILED: Cannot achieve target P_fus at this B_max")
             continue
 
         # Calculate beta
@@ -192,19 +192,22 @@ for B_max in B_MAX_RANGE:
         # CALCULATE TAPE REQUIREMENTS
         # ====================================================================
 
-        # Solenoid: uses B_central (conductor field)
-        R_solenoid = 1.1 * (a_0_min + a_0_FLR_mirror) / 2 + R_BAKER
-        Am_solenoid = (2 * np.pi * R_solenoid * B_central * L_plasma) / mu_0
-        kAm_solenoid = Am_solenoid / 1000
+        # Central magnets: uses B_central (conductor field) and a_0_min
+        # Formula: (4 * π * R^2 * B) / μ_0, with 2 rings
+        R_central = 1.1 * a_0_min + R_BAKER
+        Am_central_single = (4 * np.pi * R_central**2 * B_central) / mu_0
+        kAm_central_single = Am_central_single / 1000
+        kAm_central_total = 2 * kAm_central_single
 
-        # End rings: uses B_max at mirror
-        R_ring = 1.1 * a_0_FLR_mirror + R_SHIELD
-        Am_ring_single = (4 * np.pi * R_ring**2 * B_max) / mu_0
-        kAm_ring_single = Am_ring_single / 1000
-        kAm_rings_total = 2 * kAm_ring_single
+        # End magnets: uses B_max at mirror
+        # Formula: (4 * π * R^2 * B) / μ_0, with 2 rings
+        R_end = 1.1 * a_0_FLR_mirror + R_SHIELD
+        Am_end_single = (4 * np.pi * R_end**2 * B_max) / mu_0
+        kAm_end_single = Am_end_single / 1000
+        kAm_end_total = 2 * kAm_end_single
 
         # Total
-        kAm_total = kAm_solenoid + kAm_rings_total
+        kAm_total = kAm_central_total + kAm_end_total
 
         # Store results
         results['B_max'].append(B_max)
@@ -219,16 +222,17 @@ for B_max in B_MAX_RANGE:
         results['L_plasma'].append(L_plasma)
         results['V_plasma'].append(V_plasma)
         results['regime'].append(regime)
-        results['kAm_solenoid'].append(kAm_solenoid)
-        results['kAm_rings'].append(kAm_rings_total)
+        results['kAm_central_magnets'].append(kAm_central_total)
+        results['kAm_end_magnets'].append(kAm_end_total)
         results['kAm_total'].append(kAm_total)
         results['P_NBI'].append(P_NBI)
+        results['P_fusion'].append(P_fusion)
         results['NWL_achieved'].append(NWL_achieved)
 
         print(f"{B_max:>7.1f} {B_central:>7.2f} {B_0:>7.3f} {n_20:>7.4f} "
               f"{beta:>7.5f} {a_0_abs:>7.4f} {a_0_FLR:>7.4f} {a_0_min:>7.4f} "
               f"{a_0_FLR_mirror:>7.4f} {L_plasma:>7.2f} {V_plasma:>7.3f} "
-              f"{kAm_solenoid:>9.1f} {kAm_rings_total:>9.1f} {kAm_total:>9.1f} "
+              f"{kAm_central_total:>9.1f} {kAm_end_total:>9.1f} {kAm_total:>9.1f} "
               f"{regime:>5}")
 
     except Exception as e:
@@ -249,10 +253,10 @@ print(f"{'='*80}")
 print(f"Successfully calculated {len(results['B_max'])} operating points")
 print(f"B_max range: {results['B_max'][0]:.1f} - {results['B_max'][-1]:.1f} T")
 print(f"kA-m range: {results['kAm_total'][0]:.1f} - {results['kAm_total'][-1]:.1f} kA-m")
-print(f"Solenoid fraction at B_max={results['B_max'][0]:.0f}T: "
-      f"{100*results['kAm_solenoid'][0]/results['kAm_total'][0]:.1f}%")
-print(f"Solenoid fraction at B_max={results['B_max'][-1]:.0f}T: "
-      f"{100*results['kAm_solenoid'][-1]/results['kAm_total'][-1]:.1f}%")
+print(f"Central magnets fraction at B_max={results['B_max'][0]:.0f}T: "
+      f"{100*results['kAm_central_magnets'][0]/results['kAm_total'][0]:.1f}%")
+print(f"Central magnets fraction at B_max={results['B_max'][-1]:.0f}T: "
+      f"{100*results['kAm_central_magnets'][-1]/results['kAm_total'][-1]:.1f}%")
 print(f"\nDiamagnetic effect at B_max={results['B_max'][0]:.0f}T: "
       f"B_0/B_central = {results['B_0'][0]/results['B_central'][0]:.3f} "
       f"({100*(1-results['B_0'][0]/results['B_central'][0]):.1f}% reduction)")
@@ -276,10 +280,10 @@ ax3 = plt.subplot(2, 1, 2)  # Bottom center (spans full width)
 # ============================================================================
 ax1.plot(results['B_max'], results['kAm_total'], 'b-', linewidth=3,
          label='Total', marker='o', markersize=6)
-ax1.plot(results['B_max'], results['kAm_solenoid'], 'r--', linewidth=2,
-         label='Solenoid', marker='s', markersize=5)
-ax1.plot(results['B_max'], results['kAm_rings'], 'g--', linewidth=2,
-         label='End Rings (×2)', marker='^', markersize=5)
+ax1.plot(results['B_max'], results['kAm_central_magnets'], 'r--', linewidth=2,
+         label='Central Magnets (×2)', marker='s', markersize=5)
+ax1.plot(results['B_max'], results['kAm_end_magnets'], 'g--', linewidth=2,
+         label='End Magnets (×2)', marker='^', markersize=5)
 ax1.set_xlabel('$B_{max}$ [T]', fontsize=13, fontweight='bold')
 ax1.set_ylabel('Conductor [kA-m]', fontsize=13, fontweight='bold')
 ax1.set_title('Total HTS Conductor vs Maximum Field', fontsize=13, fontweight='bold')
@@ -289,10 +293,10 @@ ax1.grid(True, alpha=0.3)
 # ============================================================================
 # PLOT 2: Breakdown by component (TOP RIGHT)
 # ============================================================================
-ax2.fill_between(results['B_max'], 0, results['kAm_solenoid'],
-                  alpha=0.5, color='red', label='Solenoid')
-ax2.fill_between(results['B_max'], results['kAm_solenoid'], results['kAm_total'],
-                  alpha=0.5, color='green', label='End Rings')
+ax2.fill_between(results['B_max'], 0, results['kAm_central_magnets'],
+                  alpha=0.5, color='red', label='Central Magnets (×2)')
+ax2.fill_between(results['B_max'], results['kAm_central_magnets'], results['kAm_total'],
+                  alpha=0.5, color='green', label='End Magnets (×2)')
 ax2.plot(results['B_max'], results['kAm_total'], 'b-', linewidth=2.5,
          label='Total', marker='o', markersize=5)
 ax2.set_xlabel('$B_{max}$ [T]', fontsize=13, fontweight='bold')
@@ -326,10 +330,10 @@ new_left = 0.25
 ax3.set_position([new_left, ax3_pos.y0, new_width, ax3_pos.height])
 
 fig.suptitle(f'HTS Conductor Requirements vs Maximum Field\n'
-             f'Operating Point: NWL={TARGET_NWL} MW/m², $E_b$={E_B_KEV} keV, '
+             f'Operating Point: P_fus={TARGET_PFUS} MW, $E_b$={E_B_KEV} keV, '
              f'$R_M$={R_M_VAC}, $\\beta_c$={BETA_C}\n'
-             f'(With diamagnetic corrections, $r_{{baker}}$={R_BAKER}m, '
-             f'$r_{{shield}}$={R_SHIELD}m)',
+             f'$r_{{baker}}$={R_BAKER}m, '
+             f'$r_{{shield}}$={R_SHIELD}m',
              fontsize=14, fontweight='bold', y=0.98)
 
 plt.tight_layout()

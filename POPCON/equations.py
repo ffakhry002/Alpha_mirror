@@ -330,7 +330,7 @@ def calculate_max_mirror_ratio_vortex(E_b_100keV, B0, a_0_min, L_plasma):
     return 0.7*(a_0_min / sound_gyrorad)**2 * (legnth_curv / L_plasma) / np.sqrt(ti_te_ratio + 1)
 
 # ============================================================================
-# POWER CALCULATIONS
+# POWER CALCULATION
 # ============================================================================
 
 def calculate_fusion_power(E_b_100keV, n_20, V_plasma, T_i_keV):
@@ -357,7 +357,7 @@ def calculate_NBI_power(n_20, V_plasma, E_b_100keV, Rm_vac, C_loss=None, efficie
     if C_loss is None:
         C_loss = calculate_loss_coefficient(E_b_100keV, Rm_vac)
 
-    P_NBI = (1/efficiency) * 1.6 * n_20**2 * V_plasma / (C_loss * np.sqrt(E_b_100keV) * np.log10(Rm_vac))
+    P_NBI = 2*(1/efficiency) * 1.6 * n_20**2 * V_plasma / (C_loss * np.sqrt(E_b_100keV) * np.log10(Rm_vac))
 
     if np.isscalar(n_20) and np.isscalar(V_plasma) and np.isscalar(E_b_100keV):
         P_NBI = float(P_NBI)
@@ -417,3 +417,70 @@ def calculate_heat_flux(P_nbi, Q, a_0_min, B0, Bw):
     power_in = ETA_HEAT * P_nbi * (1 + Q/5)
     wetted_area = 2*np.pi * a_0_min**2 * B0 / Bw
     return power_in / wetted_area
+
+
+# ============================================================================
+# TAPE REQUIREMENTS (SIMPLE 3-COIL MODEL)
+# ============================================================================
+
+def tape_req_simple(a_0_min, a_0_FLR_mirror, B_central, B_max,
+                    r_baker=0.88, r_shield=0.6):
+    """
+    Calculate HTS tape requirements for a simple 3-coil model:
+    - 2 end coils (at mirror field)
+    - 1 central coil
+
+    All coils are circular rings.
+
+    Parameters
+    ----------
+    a_0_min : float
+        Minimum plasma radius at center [m]
+    a_0_FLR_mirror : float
+        Plasma radius at mirror (from FLR constraint) [m]
+    B_central : float
+        Magnetic field at center [T]
+    B_max : float
+        Maximum magnetic field at mirror [T]
+    r_baker : float, optional
+        Breeder + shield thickness for central coil [m] (default: 0.88)
+    r_shield : float, optional
+        Shield thickness for end coils [m] (default: 0.6)
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'kAm_central': Central coil tape requirement [kA-m]
+        - 'kAm_end_single': Single end coil tape requirement [kA-m]
+        - 'kAm_end_total': Total for both end coils [kA-m]
+        - 'kAm_total': Total tape requirement [kA-m]
+        - 'R_central': Central coil radius [m]
+        - 'R_end': End coil radius [m]
+    """
+    mu_0 = 4 * np.pi * 1e-7  # H/m
+
+    # Central coil: uses a_0_min and B_central
+    # Radius = 1.1 * plasma_radius + baker + shield
+    R_central = 1.1 * a_0_min + r_baker
+    Am_central = (4 * np.pi * R_central**2 * B_central) / mu_0
+    kAm_central = Am_central / 1000
+
+    # End coils: use a_0_FLR_mirror and B_max
+    # Radius = 1.1 * plasma_radius + shield
+    R_end = 1.1 * a_0_FLR_mirror + r_shield
+    Am_end_single = (4 * np.pi * R_end**2 * B_max) / mu_0
+    kAm_end_single = Am_end_single / 1000
+    kAm_end_total = 2 * kAm_end_single
+
+    # Total tape requirement
+    kAm_total = kAm_central + kAm_end_total
+
+    return {
+        'kAm_central': float(kAm_central),
+        'kAm_end_single': float(kAm_end_single),
+        'kAm_end_total': float(kAm_end_total),
+        'kAm_total': float(kAm_total),
+        'R_central': float(R_central),
+        'R_end': float(R_end)
+    }

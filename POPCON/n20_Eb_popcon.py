@@ -41,8 +41,8 @@ from n20_Eb_inputs import (
     Q_levels,
     NWL_background,
     NWL_levels,
+    P_fus_background,
     a0_levels,
-    a0_limit,
     min_a0,
     P_fus_levels,
     P_NBI_levels,
@@ -177,17 +177,14 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Calculate end plug radius
     a_w = calculate_a_w(a_0_min, B_0_grid, Bw)
 
-    # Calculate effective a0 limit - SIZE LIMIT ONLY ON a0_min (central)
-    a0_eff_limit = a0_limit
-
     # Create masks for different regions
     mask_beta = n_20_grid > n_20_beta_limit
-    mask_impractical = a_0_min > a0_limit  # Only limit central radius
+    # mask_impractical = a_0_min > a0_limit  # REMOVED: No max a0 limit
     mask_min_a0 = a_0_min < min_a0  # Minimum radius constraint
     mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < 0.0
 
-    mask_gray = mask_beta | mask_impractical | mask_min_a0 | mask_heat_flux
+    mask_gray = mask_beta | mask_min_a0 | mask_heat_flux
     mask_black = np.zeros_like(mask_gray, dtype=bool)
     mask_white = (~mask_gray) & mask_low_NWL
 
@@ -195,23 +192,27 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.contourf(E_b100_grid, n_20_grid, mask_gray.astype(int),
                 levels=[0.5, 1.5], colors=['lightgray'], alpha=0.8)
 
-    # Plot NWL contours
+    # Plot P_fus contours as background
+    P_fus_valid = P_fusion_beam_target.copy()
+    P_fus_valid[mask_gray | mask_black | mask_white] = np.nan
+
+    im = ax.contourf(E_b100_grid, n_20_grid, P_fus_valid,
+                     levels=P_fus_background, cmap='viridis', extend='max')
+
+    # Also prepare NWL for contour lines (not background)
     NWL_valid = NWL_beam_target.copy()
     NWL_valid[mask_gray | mask_black | mask_white] = np.nan
-
-    im = ax.contourf(E_b100_grid, n_20_grid, NWL_valid,
-                     levels=NWL_background, cmap='viridis', extend='max')
 
     # Beta limit line
     ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=3, zorder=5,
             label='Beta limit')
 
-    # Size limit boundary line (maximum)
-    size_limit_boundary = a_0_min - a0_eff_limit
-    ax.contour(E_b100_grid, n_20_grid, size_limit_boundary,
-               levels=[0], colors=['darkred'], linewidths=2, linestyles='--', zorder=4)
-    ax.plot([], [], color='darkred', linewidth=2, linestyle='--',
-            label=f"a0={a0_limit:.1f}m limit")
+    # Size limit boundary line (maximum) - REMOVED: No max a0 limit
+    # size_limit_boundary = a_0_min - a0_eff_limit
+    # ax.contour(E_b100_grid, n_20_grid, size_limit_boundary,
+    #            levels=[0], colors=['darkred'], linewidths=2, linestyles='--', zorder=4)
+    # ax.plot([], [], color='darkred', linewidth=2, linestyle='--',
+    #         label=f"a0={a0_limit:.1f}m limit")
 
     # Minimum a0 boundary line
     min_a0_boundary = a_0_min - min_a0
@@ -302,7 +303,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Heat flux limit contour
     q_w_valid = q_w.copy()
-    q_w_valid[mask_impractical | mask_beta | mask_black | mask_white] = np.nan
+    q_w_valid[mask_beta | mask_black | mask_white] = np.nan
     ax.contour(E_b100_grid, n_20_grid, q_w_valid,
                levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
     ax.plot([], [], color='tab:orange', linewidth=3, linestyle='-',
@@ -377,8 +378,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Colorbar
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label(r'NWL [MW/m²] (Beam-Target Fusion)', fontsize=12)
-    cbar.set_ticks(NWL_levels)
+    cbar.set_label(r'$P_{fusion}$ [MW] (Beam-Target Fusion)', fontsize=12)
+    # Use P_fus_background for colorbar ticks
+    cbar_ticks = np.linspace(0, P_fus_background[-1], 6)
+    cbar.set_ticks(cbar_ticks)
     cbar.ax.tick_params(labelsize=10)
 
     # Grid
