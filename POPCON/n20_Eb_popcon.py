@@ -11,8 +11,9 @@ from equations import (
     calculate_B0_with_diamagnetic,
     calculate_beta_limit,
     calculate_a0_absorption,
-    calculate_a0_FLR,
-    calculate_a0_FLR_at_mirror,
+    calculate_a0_DCLC,
+    calculate_a0_adiabaticity,
+    calculate_a0_end,
     calculate_plasma_geometry_frustum,
     calculate_collisionality,
     calculate_voltage_closed_lines,
@@ -25,6 +26,11 @@ from equations import (
     calculate_Bw,
     calculate_a_w,
     calculate_heat_flux,
+    calculate_grid_lifetime,
+    calculate_capacity_factor_annual,
+    calculate_average_fusion_power,
+    calculate_isotope_revenue,
+    calculate_revenue_per_volume,
 )
 
 from n20_Eb_inputs import (
@@ -33,8 +39,6 @@ from n20_Eb_inputs import (
     beta_c_default,
     T_i_coeff,
     T_e_coeff,
-    N_25,
-    N_rho,
     E_b_min,
     E_b_max,
     n_grid_points,
@@ -42,6 +46,7 @@ from n20_Eb_inputs import (
     NWL_background,
     NWL_levels,
     P_fus_background,
+    Rev_per_Vol_background,
     a0_levels,
     min_a0,
     P_fus_levels,
@@ -53,14 +58,22 @@ from n20_Eb_inputs import (
     q_w_levels,
     qw_limit,
     Bw_levels,
+    V_levels,
     a_w_levels,
     max_R_M_vortex_levels,
     voltage_levels,
     nu_levels,
+    CF_levels,
     test_points_list,
     figures_dir,
     figure_dpi,
     figure_size,
+    d_grid,
+    t_replace,
+    eta_duty,
+    sigma_x_beam,
+    sigma_y_beam,
+    num_grids,
 )
 
 
@@ -90,11 +103,12 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate geometry constraints
     a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
-    a_0_FLR = calculate_a0_FLR(E_b100_grid, B_0_grid, N_25)  # Use B_0 (diamagnetic)
-    a_0_min = np.maximum(a_0_abs, a_0_FLR)
+    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid)  # DCLC stabilization (25*rho_i)
+    a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
+    a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), a_0_adiabatic)
 
-    # Calculate a0 at mirror field for frustum geometry - use B_max directly
-    a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b100_grid, B_max, N_25)
+    # Calculate a0 at mirror throat from flux conservation
+    a_0_end = calculate_a0_end(a_0_min, B_0_grid, B_max)
 
     # Calculate plasma geometry using FRUSTUM model
     L_plasma = np.zeros_like(a_0_min)
@@ -104,7 +118,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     for i in range(n_grid_points):
         for j in range(n_grid_points):
             L, V, A = calculate_plasma_geometry_frustum(
-                a_0_min[i, j], a_0_FLR_mirror[i, j], N_rho
+                a_0_min[i, j], a_0_end[i, j], E_b100_grid[i, j], B_0_grid[i, j]
             )
             L_plasma[i, j] = L
             V_plasma[i, j] = V
@@ -153,6 +167,32 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Calculate NWL
     NWL_beam_target = calculate_NWL(P_fusion_beam_target, vessel_surface_area)
 
+    # Calculate capacity factor and time-averaged fusion power
+    print(f"Calculating capacity factor for grid lifetime...")
+    t_grid = calculate_grid_lifetime(
+        E_b100_grid * 100,  # Convert to keV (not 100 keV units!)
+        P_NBI_required,
+        d_mm=d_grid,
+        sigma_x_cm=sigma_x_beam,
+        sigma_y_cm=sigma_y_beam,
+        num_grids=num_grids
+    )
+    CF_annual = calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
+    P_fus_avg = calculate_average_fusion_power(P_fusion_beam_target, t_grid,
+                                                t_replace_months=t_replace, eta_duty=eta_duty)
+
+    # Calculate capacity factor adjusted fusion power density [MW/m³]
+    P_fus_avg_density = P_fus_avg / V_plasma
+
+    # Calculate Revenue/Volume using capacity factor adjusted fusion power
+    Revenue = calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
+    Rev_per_Vol = Revenue / V_plasma  # [$/yr/m³]
+
+    print(f"Capacity factor range: {np.nanmin(CF_annual):.3f} - {np.nanmax(CF_annual):.3f}")
+    print(f"Grid lifetime range: {np.nanmin(t_grid):.1f} - {np.nanmax(t_grid):.1f} hours")
+    print(f"⟨P_fus⟩/V range: {np.nanmin(P_fus_avg_density):.2f} - {np.nanmax(P_fus_avg_density):.2f} MW/m³")
+    print(f"Revenue/Volume range: {np.nanmin(Rev_per_Vol)/1e6:.2f} - {np.nanmax(Rev_per_Vol)/1e6:.2f} $M/yr/m³")
+
     # Calculate collisionality for sanity check
     collisionality = calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
     print(f"Max collisionality: {np.nanmax(collisionality)}")
@@ -165,7 +205,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     voltage_fr = calculate_voltage_field_reversal(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
     print(f"Max Voltage for field reversal: {np.nanmax(voltage_fr)}")
     print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
-    end_plate_voltate = np.maximum(voltage_cl, voltage_fr)
+    end_plate_voltage = np.maximum(voltage_cl, voltage_fr)
 
     # Calculate mirror ratio limit for vortex stabilization
     max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
@@ -173,7 +213,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate end plug magnetic field and heat flux
     Bw = calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
-    q_w = calculate_heat_flux(P_NBI_required, Q, a_0_min, B_0_grid, Bw)
+
+    # BUG FIX: Use Q_beam_target instead of undefined Q
+    q_w = calculate_heat_flux(P_NBI_required, Q_beam_target, a_0_min, B_0_grid, Bw)
+
     # Calculate end plug radius
     a_w = calculate_a_w(a_0_min, B_0_grid, Bw)
 
@@ -184,35 +227,51 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < 0.0
 
+    # NEW: Mask for invalid Bw region
+    # Valid when Bw < B_max/74 (calculated end-wall field must be achievable)
+    # Invalid when Bw > B_max/74 (required end-wall field too high)
+    Bw_max_limit = B_max / 74.0  # Maximum allowable Bw
+    mask_Bw_invalid = Bw > Bw_max_limit  # Invalid where Bw exceeds limit
+
+    print(f"Bw range: {np.nanmin(Bw):.3f} - {np.nanmax(Bw):.3f} T")
+    print(f"Bw_max_limit (B_max/74): {Bw_max_limit:.3f} T")
+    print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
+
     mask_gray = mask_beta | mask_min_a0 | mask_heat_flux
     mask_black = np.zeros_like(mask_gray, dtype=bool)
     mask_white = (~mask_gray) & mask_low_NWL
+
+    # NEW: Add Bw invalid region as a separate hatched region
+    mask_Bw_display = mask_Bw_invalid & (~mask_gray)  # Only show where not already gray
 
     # Fill regions
     ax.contourf(E_b100_grid, n_20_grid, mask_gray.astype(int),
                 levels=[0.5, 1.5], colors=['lightgray'], alpha=0.8)
 
-    # Plot P_fus contours as background
+    # NEW: Fill Bw invalid region with hatching (different color to distinguish)
+    ax.contourf(E_b100_grid, n_20_grid, mask_Bw_display.astype(int),
+                levels=[0.5, 1.5], colors=['darkgray'], alpha=0.6, hatches=['//'])
+
+    # ===========================================================================
+    # CHANGED: Plot P_fus as background instead of Revenue/Volume
+    # ===========================================================================
     P_fus_valid = P_fusion_beam_target.copy()
-    P_fus_valid[mask_gray | mask_black | mask_white] = np.nan
+    P_fus_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+
+    # Create P_fus background levels with max at 10 MW
+    max_P_fus_background = 25.0  # MW
+    P_fus_background_levels = np.linspace(0, max_P_fus_background, 100)
 
     im = ax.contourf(E_b100_grid, n_20_grid, P_fus_valid,
-                     levels=P_fus_background, cmap='viridis', extend='max')
+                     levels=P_fus_background_levels, cmap='viridis', extend='max')
 
     # Also prepare NWL for contour lines (not background)
     NWL_valid = NWL_beam_target.copy()
-    NWL_valid[mask_gray | mask_black | mask_white] = np.nan
+    NWL_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
 
     # Beta limit line
     ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=3, zorder=5,
             label='Beta limit')
-
-    # Size limit boundary line (maximum) - REMOVED: No max a0 limit
-    # size_limit_boundary = a_0_min - a0_eff_limit
-    # ax.contour(E_b100_grid, n_20_grid, size_limit_boundary,
-    #            levels=[0], colors=['darkred'], linewidths=2, linestyles='--', zorder=4)
-    # ax.plot([], [], color='darkred', linewidth=2, linestyle='--',
-    #         label=f"a0={a0_limit:.1f}m limit")
 
     # Minimum a0 boundary line
     min_a0_boundary = a_0_min - min_a0
@@ -221,9 +280,16 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.plot([], [], color='orange', linewidth=2, linestyle='--',
             label=f"a0={min_a0:.2f}m min")
 
+    # NEW: Bw = B_max/74 boundary line (valid below, invalid above)
+    Bw_boundary = Bw - Bw_max_limit
+    CS_Bw_boundary = ax.contour(E_b100_grid, n_20_grid, Bw_boundary,
+               levels=[0], colors=['red'], linewidths=2, linestyles=':', zorder=4)
+    ax.plot([], [], color='red', linewidth=2, linestyle=':',
+            label=f"$B_w$=$B_m$/74 limit")
+
     # a₀ contours
     a_0_min_valid = a_0_min.copy()
-    a_0_min_valid[mask_gray | mask_black | mask_white] = np.nan
+    a_0_min_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
 
     CS = ax.contour(E_b100_grid, n_20_grid, a_0_min_valid,
                     levels=a0_levels, colors='pink', linewidths=1.5, alpha=0.9)
@@ -234,22 +300,22 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Q contour lines
     Q_valid = Q_beam_target.copy()
-    Q_valid[mask_gray | mask_black | mask_white] = np.nan
+    Q_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
 
     CS_Q = ax.contour(E_b100_grid, n_20_grid, Q_valid,
                       levels=Q_levels, colors='cyan', linewidths=1.5,
                       alpha=0.8, linestyles='-')
     ax.clabel(CS_Q, inline=True, fontsize=8, fmt='Q=%.2f')
 
-    # P_fusion contours
+    # ⟨P_fus⟩ contours (capacity factor adjusted fusion power)
     if len(P_fus_levels) > 0:
-        P_fusion_valid = P_fusion_beam_target.copy()
-        P_fusion_valid[mask_gray | mask_black | mask_white] = np.nan
+        P_fus_avg_valid = P_fus_avg.copy()
+        P_fus_avg_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
 
-        CS_Pfus = ax.contour(E_b100_grid, n_20_grid, P_fusion_valid,
-                             levels=P_fus_levels, colors='magenta', linewidths=1.5,
-                             alpha=0.8, linestyles='-')
-        ax.clabel(CS_Pfus, inline=True, fontsize=8, fmt='P_fus=%.0f MW')
+        CS_Pfus = ax.contour(E_b100_grid, n_20_grid, P_fus_avg_valid,
+                             levels=P_fus_levels, colors='magenta', linewidths=2.0,
+                             alpha=0.9, linestyles='-')
+        ax.clabel(CS_Pfus, inline=True, fontsize=9, fmt='⟨P_fus⟩=%.0f MW')
 
     # NWL contour lines
     CS_NWL = ax.contour(E_b100_grid, n_20_grid, NWL_valid,
@@ -260,7 +326,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # B₀ contours
     if len(B_0_levels) > 0:
         B_0_valid = B_0_grid.copy()
-        B_0_valid[mask_gray | mask_black | mask_white] = np.nan
+        B_0_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_B0 = ax.contour(E_b100_grid, n_20_grid, B_0_valid,
                            levels=B_0_levels, colors='orange', linewidths=1.5,
                            alpha=0.7, linestyles='-')
@@ -268,7 +334,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # P_NBI contours
     P_NBI_valid = P_NBI_required.copy()
-    P_NBI_valid[mask_gray | mask_black | mask_white] = np.nan
+    P_NBI_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
     CS_PNBI = ax.contour(E_b100_grid, n_20_grid, P_NBI_valid,
                          levels=P_NBI_levels, colors='red', linewidths=2.5,
                          alpha=1.0, linestyles='-')
@@ -277,7 +343,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Beta contours
     if len(beta_levels) > 0:
         beta_valid = beta_local.copy()
-        beta_valid[mask_gray | mask_black | mask_white] = np.nan
+        beta_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_beta = ax.contour(E_b100_grid, n_20_grid, beta_valid,
                              levels=beta_levels, colors='orange', linewidths=1.5,
                              alpha=0.8, linestyles='-.')
@@ -286,7 +352,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # C (Loss Coefficient) contours
     if len(C_levels) > 0:
         C_valid = C_loss.copy()
-        C_valid[mask_gray | mask_black | mask_white] = np.nan
+        C_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_C = ax.contour(E_b100_grid, n_20_grid, C_valid,
                           levels=C_levels, colors='brown', linewidths=1.5,
                           alpha=0.8, linestyles=':')
@@ -295,7 +361,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # R_M (Mirror Ratio) contours - diamagnetic
     if len(R_M_levels) > 0:
         R_M_valid = R_M_dmag.copy()
-        R_M_valid[mask_gray | mask_black | mask_white] = np.nan
+        R_M_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_RM = ax.contour(E_b100_grid, n_20_grid, R_M_valid,
                            levels=R_M_levels, colors='lime', linewidths=2,
                            alpha=0.8, linestyles='--')
@@ -319,7 +385,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # End-plug magnetic field levels
     if len(Bw_levels) > 0:
         Bw_valid = Bw.copy()
-        Bw_valid[mask_gray | mask_black | mask_white] = np.nan
+        Bw_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_BW = ax.contour(E_b100_grid, n_20_grid, Bw_valid,
                            levels=Bw_levels, colors='lime', linewidths=2,
                            alpha=1.0, linestyles='-')
@@ -327,7 +393,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     if len(a_w_levels) > 0:
         a_w_valid = a_w.copy()
-        a_w_valid[mask_gray | mask_black | mask_white] = np.nan
+        a_w_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_AW = ax.contour(E_b100_grid, n_20_grid, a_w_valid,
                            levels=a_w_levels, colors='magenta', linewidths=2,
                            alpha=1.0, linestyles='-')
@@ -336,7 +402,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Max R_M contours for vortex stabilization
     if len(max_R_M_vortex_levels) > 0:
         max_R_M_vortex_valid = max_R_M_vortex.copy()
-        max_R_M_vortex_valid[mask_gray | mask_black | mask_white] = np.nan
+        max_R_M_vortex_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_RM = ax.contour(E_b100_grid, n_20_grid, max_R_M_vortex_valid,
                            levels=max_R_M_vortex_levels, colors='magenta', linewidths=2,
                            alpha=0.8, linestyles='-')
@@ -344,8 +410,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # end plate voltage contours
     if len(voltage_levels) > 0:
-        voltage_valid = end_plate_voltate.copy()
-        voltage_valid[mask_gray | mask_black | mask_white] = np.nan
+        voltage_valid = end_plate_voltage.copy()
+        voltage_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_V = ax.contour(E_b100_grid, n_20_grid, voltage_valid,
                            levels=voltage_levels, colors='#a0a0a0', linewidths=3,
                            alpha=1.0, linestyles='-')
@@ -354,11 +420,29 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Collisionality contours
     if len(nu_levels) > 0:
         nu_valid = collisionality.copy()
-        nu_valid[mask_gray | mask_black | mask_white] = np.nan
+        nu_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_NU = ax.contour(E_b100_grid, n_20_grid, nu_valid,
                           levels=nu_levels, colors='tab:orange', linewidths=3,
                           alpha=0.8, linestyles='-')
         ax.clabel(CS_NU, inline=True, fontsize=8, fmt='$\\nu_{*}$=%.1e')
+
+    # Capacity factor contours
+    if len(CF_levels) > 0:
+        CF_valid = CF_annual.copy()
+        CF_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        CS_CF = ax.contour(E_b100_grid, n_20_grid, CF_valid,
+                          levels=CF_levels, colors='white', linewidths=1.0,
+                          alpha=0.9, linestyles='-')
+        ax.clabel(CS_CF, inline=True, fontsize=10, fmt='CF=%.1f')
+
+    # Volume contours [m³]
+    if len(V_levels) > 0:
+        V_valid = V_plasma.copy()
+        V_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        CS_V = ax.contour(E_b100_grid, n_20_grid, V_valid,
+                          levels=V_levels, colors='white', linewidths=1.5,
+                          alpha=0.9, linestyles='-')
+        ax.clabel(CS_V, inline=True, fontsize=9, fmt='V=%.1f m³')
 
 
     # Formatting
@@ -376,12 +460,14 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Legend
     ax.legend(loc='lower left', fontsize=10)
 
-    # Colorbar
+    # ===========================================================================
+    # CHANGED: Colorbar for P_fus (max 10 MW)
+    # ===========================================================================
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label(r'$P_{fusion}$ [MW] (Beam-Target Fusion)', fontsize=12)
-    # Use P_fus_background for colorbar ticks
-    cbar_ticks = np.linspace(0, P_fus_background[-1], 6)
+    cbar.set_label(r'$P_{fus}$ [MW]', fontsize=12)
+    cbar_ticks = np.linspace(0, max_P_fus_background, 6)
     cbar.set_ticks(cbar_ticks)
+    cbar.set_ticklabels([f'{x:.1f}' for x in cbar_ticks])
     cbar.ax.tick_params(labelsize=10)
 
     # Grid
@@ -389,7 +475,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     ax.set_title(f'($B_{{max}}$={B_max}T, $B_{{central}}$={B_central:.1f}T, '
                  f'$R_{{M,vac}}$={R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
-                 f'Frustum Geometry',
+                 f'Frustum Geometry | Background: $P_{{fus}}$',
                  fontsize=12, weight='bold')
 
     plt.tight_layout()
@@ -407,11 +493,11 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
     R_M_vac = B_max / B_central
 
     print("\n" + "="*100)
-    print(f"TESTING MULTIPLE DESIGN POINTS: B_max={B_max}T, B_central={B_central}T, R_M_vac={R_M_vac:.2f}")
+    # print(f"TESTING MULTIPLE DESIGN POINTS: B_max={B_max}T, B_central={B_central}T, R_M_vac={R_M_vac:.2f}")
     print("="*100)
 
     # Header
-    print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_FLR':>7} "
+    print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} "
           f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
           f"{'NWL':>6} {'Q':>6} {'Limit':>6}")
     print(f"{'[keV]':>6} {'[e20]':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} "
@@ -428,14 +514,23 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         R_M_dmag = B_max / B_0
 
         a_0_abs = calculate_a0_absorption(E_b_100, n_20_target)
-        a_0_FLR = calculate_a0_FLR(E_b_100, B_0, N_25)
-        a_0_min = max(a_0_abs, a_0_FLR)
-        limiting_constraint = "Abs" if a_0_abs > a_0_FLR else "FLR"
+        a_0_DCLC = calculate_a0_DCLC(E_b_100, B_0)
+        # BUG FIX: Use beta_local instead of undefined beta
+        a_0_adiabatic = calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
+        a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic)
 
-        a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100, B_max, N_25)
+        # Determine limiting constraint
+        if a_0_abs >= a_0_DCLC and a_0_abs >= a_0_adiabatic:
+            limiting_constraint = "Abs"
+        elif a_0_DCLC >= a_0_adiabatic:
+            limiting_constraint = "DCLC"
+        else:
+            limiting_constraint = "Adiabatic"
+
+        a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
 
         L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
-            a_0_min, a_0_FLR_mirror, N_rho
+            a_0_min, a_0_end, E_b_100, B_0
         )
 
         C_loss = calculate_loss_coefficient(E_b_100, R_M_vac)
@@ -446,9 +541,9 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         NWL = calculate_NWL(P_fusion, vessel_surface_area)
         Q = calculate_Q(P_fusion, P_NBI)
 
-        # Print row
+        # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
         print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
-              f"{a_0_abs:7.4f} {a_0_FLR:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
+              f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
               f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6}")
 
@@ -460,7 +555,7 @@ if __name__ == "__main__":
     print(f"Using B_max={B_max_default}T, B_central={B_central_default}T")
     print(f"Vacuum mirror ratio R_M_vac = {B_max_default/B_central_default:.2f}")
 
-    print(f"Testing voltate calculation: BEAM voltage should be between 2 to 3")
+    print(f"Testing voltage calculation: BEAM voltage should be between 2 to 3")
     voltage_beam = calculate_voltage_closed_lines(1, 2.5, 0.3, 10, 12)
     voltage_beam = max(voltage_beam, calculate_voltage_field_reversal(1, 2.5, 0.3, 10, 12))
     print(f"BEAM voltage required: {voltage_beam}")

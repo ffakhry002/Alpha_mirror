@@ -9,14 +9,14 @@ from pathlib import Path
 from equations import (
     calculate_loss_coefficient, calculate_beta_local, calculate_B0_with_diamagnetic,
     calculate_beta_limit, calculate_a0_absorption, calculate_a0_FLR,
-    calculate_plasma_geometry_frustum, calculate_a0_FLR_at_mirror,
+    calculate_a0_adiabaticity, calculate_plasma_geometry_frustum, calculate_a0_end,
     calculate_fusion_power, calculate_NBI_power, calculate_NWL,
     get_dt_reactivity
 )
 
 from n20_Eb_inputs import (
     B_max_default, B_central_default, beta_c_default, T_i_coeff,
-    N_25, N_rho, figures_dir, figure_dpi, min_a0
+    figures_dir, figure_dpi, min_a0
 )
 
 # Analysis parameters
