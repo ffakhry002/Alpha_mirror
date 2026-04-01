@@ -671,6 +671,50 @@ def calculate_heat_flux(P_nbi, Q, a_0_min, B0, Bw):
     wetted_area = 2*np.pi * a_0_min**2 * B0 / Bw
     return power_in / wetted_area
 
+def calculate_ion_flux_on_target(P_nbi, E_b_100keV, a_w):
+    """
+    Calculates the incident flux of (D-T) ions on the two end plate targets
+    assuming global power balance
+    """
+    E_b_MJ = E_b_100keV * const.e / 10 # [100 keV] -> [MJ]
+    ion_current = P_nbi / E_b_MJ
+    # Factor of 2 bc there are two target plates
+    return ion_current / (2*np.pi * a_w**2)
+
+def calculate_mo_sputtering_yield(E_b_100keV):
+    """
+    Returns the sputtering yield Y from 
+    Dennis's power-law fit based on Smith (1981)
+    """
+    return 0.1596 * (E_b_100keV*100)**(-0.915) 
+
+def calculate_target_erosion_rate(P_nbi, E_b_100keV, a_w):
+    """
+    Molybdenum erosion rate [mm/yr] from Dennis's fit based on the Smith (1981)
+    model, assuming normal incidence
+    """
+    ion_flux = calculate_ion_flux_on_target(P_nbi, E_b_100keV, a_w)
+    # Molybdenum density of target
+    n_mo = 10.2e6 / 96 * 6.02e23
+    erosion_rate = calculate_mo_sputtering_yield(E_b_100keV) * ion_flux / n_mo
+    # Practical units: [m/s] -> [mm/yr]
+    return erosion_rate * 3.154e10
+
+def calculate_end_ring_thickness(P_nbi, E_b_100keV, a_w):
+    """Calculates the needed end thickness to pump out implanted tritium at the incident tritium flux
+    Units: mm"""
+    permeability_mo = 8e-9 # [mol H2/(m*s*MPa^1/2)]
+    permeability_mo = permeability_mo * 1e-3 * const.N_A # [m^-1 s^-1 Pa^-0.5]
+    print(f"permeability_mo: {permeability_mo:e}")
+    tritium_flux_target = 0.5 * calculate_ion_flux_on_target(P_nbi=P_nbi, E_b_100keV=E_b_100keV, a_w=a_w)
+    tritium_velocity_at_target = np.sqrt(2*(7/6 * E_b_100keV * 1e5*const.e) / (3*const.atomic_mass)) # [m/s]
+    print(f"tritium_velocity_target: {tritium_velocity_at_target} m/s")
+    # Ram pressure for absorption in n*m*v^2 = 
+    effective_pressure = 3*const.atomic_mass*tritium_flux_target * tritium_velocity_at_target
+    print(f"tritium_flux_target: {tritium_flux_target}")
+    print(f"Effective pressure: {effective_pressure}")
+    return permeability_mo * np.sqrt(effective_pressure) / tritium_flux_target
+
 
 # ============================================================================
 # TAPE REQUIREMENTS (SIMPLE 3-COIL MODEL)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 28.0         # Maximum mirror field [T]
-B_central_default = 2.8    # Central (conductor) field [T]
+B_central_default = 6.0    # Central (conductor) field [T]
 beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -25,7 +25,7 @@ sigma_y_beam = 10.77     # Vertical Gaussian beam width [cm]
 num_grids = 16            # Number of grids to spread power over
 
 # Beam Axis
-E_b_min = 0.4            # Minimum beam energy [100 keV units]
+E_b_min = 0.2            # Minimum beam energy [100 keV units]
 E_b_max = 1.2            # Maximum beam energy [100 keV units]
 
 # Practical engineering limit
@@ -58,7 +58,7 @@ a0_levels = np.array([
 ])
 
 # ⟨P_fus⟩ contour levels (capacity factor adjusted) [MW]
-P_fus_levels = np.array([2,4,6,8,10])
+P_fus_levels = np.array([])
 
 # NBI power contour levels [MW]
 P_NBI_levels = np.array([10, 20, 30, 40])
@@ -99,7 +99,7 @@ q_w_levels = np.array([])
 # Volume contour levels [m³]
 V_levels = np.array([0.5, 1, 2, 3, 4, 5])
 
-test_points_list = [
+test_points_list = [(0.4737, 2.1)
 
 
 ]

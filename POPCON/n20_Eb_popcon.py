@@ -26,6 +26,8 @@ from equations import (
     calculate_Bw,
     calculate_a_w,
     calculate_heat_flux,
+    calculate_target_erosion_rate,
+    calculate_end_ring_thickness,
     calculate_grid_lifetime,
     calculate_capacity_factor_annual,
     calculate_average_fusion_power,
@@ -77,7 +79,7 @@ from n20_Eb_inputs import (
 )
 
 
-def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default):
+def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, test_points_list=test_points_list):
     """Create full POPCON plot with beam-target fusion physics using frustum geometry"""
     fig, ax = plt.subplots(figsize=figure_size)
 
@@ -444,12 +446,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                           alpha=0.9, linestyles='-')
         ax.clabel(CS_V, inline=True, fontsize=9, fmt='V=%.1f m³')
 
+    # Test point:
+    for Eb, n20 in test_points_list:
+        plt.plot(Eb, n20, marker='*', ms=20, c='w')
 
     # Formatting
     ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=14)
     ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=14)
     ax.set_xlim([E_b_min, E_b_max])
-    ax.set_ylim([0, n_20_max])
+    ax.set_ylim([0, 5])
 
     # Force linear tick formatting
     ax.ticklabel_format(style='plain', axis='x')
@@ -499,10 +504,10 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
     # Header
     print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} "
           f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
-          f"{'NWL':>6} {'Q':>6} {'Limit':>6}")
+          f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} {'ero_rate_w':>8} {'end_width':>8}")
     print(f"{'[keV]':>6} {'[e20]':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} "
           f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
-          f"{'[MW/m²]':>6} {'':>6} {'':>6}")
+          f"{'[MW/m²]':>6} {'':>6} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {'[mm/yr]':>8} {'[mm]'}")
     print("-"*100)
 
     for E_b_100, n_20_target in test_points:
@@ -540,12 +545,17 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         P_NBI = calculate_NBI_power(n_20_target, V_plasma, E_b_100, R_M_vac, C_loss)
         NWL = calculate_NWL(P_fusion, vessel_surface_area)
         Q = calculate_Q(P_fusion, P_NBI)
+        Bw = calculate_Bw(E_b_100keV=E_b_100, B0=B_0, a_0_min=a_0_min)
+        q_w = calculate_heat_flux(P_nbi=P_NBI, Q=Q, a_0_min=a_0_min, B0=B_0, Bw=Bw)
+        a_w = calculate_a_w(a_0_min=a_0_min, B0=B_0, Bw=Bw)
+        ero_rate_w = calculate_target_erosion_rate(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
+        end_ring_thickness = calculate_end_ring_thickness(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
 
         # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
         print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
               f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
-              f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6}")
+              f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ero_rate_w:7.4f} {end_ring_thickness}")
 
     print("="*100 + "\n")
 
