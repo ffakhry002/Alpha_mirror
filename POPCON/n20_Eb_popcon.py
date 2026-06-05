@@ -13,6 +13,7 @@ from equations import (
     calculate_a0_absorption,
     calculate_a0_DCLC,
     calculate_a0_adiabaticity,
+    calculate_a0_cold_neutral_mfp,
     calculate_a0_end,
     calculate_plasma_geometry_frustum,
     calculate_collisionality,
@@ -108,7 +109,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
     a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid)  # DCLC stabilization (25*rho_i)
     a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
-    a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), a_0_adiabatic)
+    a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
+    a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), np.maximum(a_0_cold_neutrals, a_0_adiabatic))
 
     # Calculate a0 at mirror throat from flux conservation
     a_0_end = calculate_a0_end(a_0_min, B_0_grid, B_max)

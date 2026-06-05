@@ -201,6 +201,22 @@ def calculate_a0_adiabaticity(E_b_100keV, B_0, beta):
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
     return 50 * rho_i * (1 - np.sqrt(1 - beta))
 
+def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33):
+    """
+    a0 >= 33*lambda, where lambda is the cold neutral mean free path
+    for 50 eV edge neutrals (Sam Frank recommendation on cold neutral energy).
+    Assumes that the edge Te is 100 eV (by definition so that plasma is barely ionized)
+    and that the edge density is half the line average density at B=B0.
+    The density profile is pretty flat according to GDT experiments
+    (see Bagryansky, 2015, Figs 5 and 10), so using ne_edge = 0.5 ne20 is conservative
+    """
+    neutral_energy_ev = 50 # [eV], Sam Frank recommended 10s of eV
+    te_edge_ev = 100 # [eV], Dennis's recommendation: Definition of plasma edge from ionization
+    ne_edge = 0.5e20 * n_20 # [m^-3]
+    mfp = 0
+    # TODO: Implement mfp calculation using ADAS values
+    return 33 * mfp
+
 
 def calculate_a0_end(a_0_center, B_0, B_mirror):
     """
