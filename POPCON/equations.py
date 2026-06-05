@@ -4,7 +4,7 @@ Updated to use energy-dependent loss coefficient with double interpolation
 
 import numpy as np
 from pathlib import Path
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, RegularGridInterpolator
 import scipy.constants as const
 import pandas as pd
 
@@ -24,6 +24,9 @@ NBI_EFFICIENCY = ETA_ABS
 # ============================================================================
 # DATA LOADING FUNCTIONS
 # ============================================================================
+
+# Module-level cache: built once on first call
+_H_RATE_CACHE = None
 
 def load_dt_reactivity_data():
     """Load D-T fusion reactivity ⟨σv⟩(T) from FusionReactivities.dat"""
@@ -64,8 +67,37 @@ def load_dt_reactivity_data():
     except Exception as e:
         print(f"⚠ Could not load D-T reactivity data: {e}")
         return None
-
+    
 dt_reactivity_interp = load_dt_reactivity_data()
+    
+def build_hydrogen_rate_interpolators():
+    """
+    Reads CSV and builds cubic spline interpolators (called once)
+    for the hydrogen ionization/CX rates when calculating the cold neutral mfp
+    Source (converted by H. Wietfeldt to .csv using aurora): 
+    - https://open.adas.ac.uk/detail/adf11/scd12/scd12_h.dat
+    - https://open.adas.ac.uk/detail/adf11/ccd96/ccd96_h.dat
+
+    """
+    global _H_RATE_CACHE
+    if _H_RATE_CACHE is not None:
+        return _H_RATE_CACHE
+
+    df = pd.read_csv('POPCON/edge_neutrals/hydrogen_rate_coeffs.csv')
+    log10Te = np.sort(df['log10Te_eV'].unique())
+    log10ne = np.sort(df['log10ne_m3'].unique())
+
+    df = df.sort_values(['log10ne_m3', 'log10Te_eV'])
+    log10scd_2d = df['log10scd_m3s'].values.reshape(len(log10ne), len(log10Te))
+    log10ccd_2d = df['log10ccd_m3s'].values.reshape(len(log10ne), len(log10Te))
+
+    # (log10ne, log10Te) matches array shape (n_ne, n_Te)
+    scd_interp = RegularGridInterpolator((log10ne, log10Te), log10scd_2d, method='cubic')
+    ccd_interp = RegularGridInterpolator((log10ne, log10Te), log10ccd_2d, method='cubic')
+
+    _H_RATE_CACHE = (log10Te, log10ne, scd_interp, ccd_interp)
+    return _H_RATE_CACHE
+
 
 # ============================================================================
 # FUSION REACTIVITY
@@ -200,6 +232,56 @@ def calculate_a0_adiabaticity(E_b_100keV, B_0, beta):
     """
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
     return 50 * rho_i * (1 - np.sqrt(1 - beta))
+
+def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_eV):
+    """
+    Returns the effective ionization (SCD) and charge exchange cross-coupling (CCD) hydrogen
+    rate coefficients for edge density ne_edge [m^-3] and edge temperature te_edge_eV
+    based on ADAS11 data using a cubic interpolation.
+
+    Parameters
+    ----------
+    n_20 : float
+        Edge electron density [10^20 m^-3]
+    te_edge_eV : float
+        Edge electron temperature [eV]
+
+    Returns
+    -------
+    scd : float
+        Ionization rate coefficient [m^3/s]
+    ccd : float
+        Charge exchange recombination rate coefficient [m^3/s]
+    """
+    log10Te, log10ne, scd_interp, ccd_interp = build_hydrogen_rate_interpolators()
+
+    logne_q = np.clip(np.log10(ne_edge_m3), log10ne[0], log10ne[-1])
+    logTe_q = np.clip(np.log10(te_edge_eV), log10Te[0], log10Te[-1])
+
+    # Stack into (..., 2) — exactly what RegularGridInterpolator expects
+    logne_q, logTe_q = np.broadcast_arrays(logne_q, logTe_q)
+    query = np.stack([logne_q, logTe_q], axis=-1)
+
+    scd = np.power(10, scd_interp(query))
+    ccd = np.power(10, ccd_interp(query))
+
+    return scd, ccd
+
+def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutral=2.5, te_edge_eV = 100):
+    """
+    a0 >= 33*lambda, where lambda is the cold neutral mean free path
+    for 50 eV edge neutrals (Sam Frank recommendation on cold neutral energy).
+    Assumes that the edge Te is 100 eV (by definition so that plasma is barely ionized)
+    and that the edge density is half the line average density at B=B0.
+    The density profile is pretty flat according to GDT experiments
+    (see Bagryansky, 2015, Figs 5 and 10), so using ne_edge = 0.5 ne20 is conservative
+    """
+    ne_edge = 0.67 * 1e20 * n_20 # [m^-3]
+    m_neutral_kg = amu_neutral*const.atomic_mass
+    v_neutral = np.sqrt(2*E_neutral_ev*const.e/m_neutral_kg) # [m/s]
+    scd, ccd = get_hydrogen_rate_coeffs(ne_edge_m3=ne_edge, te_edge_eV=te_edge_eV)
+    mfp = v_neutral/(ne_edge*scd + ne_edge*ccd)
+    return N_mfp * mfp
 
 
 def calculate_a0_end(a_0_center, B_0, B_mirror):
@@ -404,6 +486,7 @@ def calculate_fusion_power(E_b_100keV, n_20, V_plasma, T_i_keV):
     From LaTeX document Section 1.5
     """
     sigma_v = get_dt_reactivity(T_i_keV)
+    # TODO: Only calculate the fusion power for r < 0.9*a
     P_fusion = 7.04e21 * n_20**2 * V_plasma * sigma_v
 
     if np.isscalar(E_b_100keV) and np.isscalar(n_20) and np.isscalar(V_plasma) and np.isscalar(T_i_keV):
