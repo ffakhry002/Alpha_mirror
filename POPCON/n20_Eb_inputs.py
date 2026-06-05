@@ -42,10 +42,10 @@ Q_levels = np.array([
 # Neutron wall loading (NWL) levels
 max_NWL = 3.5
 NWL_background = np.linspace(0, max_NWL, 25)  # Fine resolution for smooth background
-NWL_levels = np.array([])  # Clean contour lines
+NWL_levels = np.array(np.linspace(0, 3.0, 20))  # Clean contour lines
 
 # Fusion power background for POPCON
-max_P_fus = 25
+max_P_fus = 100
 P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
 
 # Revenue per volume background for POPCON [$/yr/m³]
@@ -53,15 +53,14 @@ max_rev_per_vol = 500e6  # $20M/yr/m³
 Rev_per_Vol_background = np.linspace(0, max_rev_per_vol, 1000)  # Fine resolution
 
 # Minor radius contour levels [m]
-a0_levels = np.array([
-
-])
+#a0_levels = np.array(np.linspace(0, 0.25, 25))
+a0_levels = np.array([])
 
 # ⟨P_fus⟩ contour levels (capacity factor adjusted) [MW]
 P_fus_levels = np.array([])
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array([10, 20, 30, 40])
+P_NBI_levels = np.array(np.arange(0, 60, 10))
 
 # On-axis field contour levels [T]
 B_0_levels = np.array([0])
@@ -97,7 +96,7 @@ a_w_levels = np.array([])
 q_w_levels = np.array([])
 
 # Volume contour levels [m³]
-V_levels = np.array([0.5, 1, 2, 3, 4, 5])
+V_levels = np.array(np.linspace(0, 1, 20))
 
 test_points_list = [(0.4737, 2.1)
 

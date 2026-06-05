@@ -4,7 +4,7 @@ Updated to use energy-dependent loss coefficient with double interpolation
 
 import numpy as np
 from pathlib import Path
-from scipy.interpolate import interp1d, RectBivariateSpline
+from scipy.interpolate import interp1d, RegularGridInterpolator
 import scipy.constants as const
 import pandas as pd
 
@@ -84,26 +84,19 @@ def build_hydrogen_rate_interpolators():
         return _H_RATE_CACHE
 
     df = pd.read_csv('POPCON/edge_neutrals/hydrogen_rate_coeffs.csv')
+    log10Te = np.sort(df['log10Te_eV'].unique())
+    log10ne = np.sort(df['log10ne_m3'].unique())
 
-    # Recover the unique sorted 1D axes
-    log10Te = np.sort(df['log10Te_eV'].unique())   # shape (n_Te,)
-    log10ne = np.sort(df['log10ne_m3'].unique())   # shape (n_ne,)
-    n_Te, n_ne = len(log10Te), len(log10ne)
-
-    # Sort to guarantee (ne outer, Te inner) ordering, then reshape
-    # This matches the meshgrid(indexing='ij') + ravel() used when writing
     df = df.sort_values(['log10ne_m3', 'log10Te_eV'])
-    log10scd_2d = df['log10scd_m3s'].values.reshape(n_ne, n_Te)  # (n_ne, n_Te)
-    log10ccd_2d = df['log10ccd_m3s'].values.reshape(n_ne, n_Te)  # (n_ne, n_Te)
+    log10scd_2d = df['log10scd_m3s'].values.reshape(len(log10ne), len(log10Te))
+    log10ccd_2d = df['log10ccd_m3s'].values.reshape(len(log10ne), len(log10Te))
 
-    # RectBivariateSpline(x, y, z) requires z.shape == (len(x), len(y))
-    # → axes are (log10Te, log10ne), so transpose to (n_Te, n_ne)
-    scd_spl = RectBivariateSpline(log10Te, log10ne, log10scd_2d.T, kx=3, ky=3)
-    ccd_spl = RectBivariateSpline(log10Te, log10ne, log10ccd_2d.T, kx=3, ky=3)
+    # (log10ne, log10Te) matches array shape (n_ne, n_Te)
+    scd_interp = RegularGridInterpolator((log10ne, log10Te), log10scd_2d, method='cubic')
+    ccd_interp = RegularGridInterpolator((log10ne, log10Te), log10ccd_2d, method='cubic')
 
-    _H_RATE_CACHE = (log10Te, log10ne, scd_spl, ccd_spl)
+    _H_RATE_CACHE = (log10Te, log10ne, scd_interp, ccd_interp)
     return _H_RATE_CACHE
-
 
 
 # ============================================================================
@@ -240,17 +233,17 @@ def calculate_a0_adiabaticity(E_b_100keV, B_0, beta):
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
     return 50 * rho_i * (1 - np.sqrt(1 - beta))
 
-def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_ev):
+def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_eV):
     """
     Returns the effective ionization (SCD) and charge exchange cross-coupling (CCD) hydrogen
-    rate coefficients for edge density ne_edge [m^-3] and edge temperature te_edge_ev
+    rate coefficients for edge density ne_edge [m^-3] and edge temperature te_edge_eV
     based on ADAS11 data using a cubic interpolation.
 
     Parameters
     ----------
     n_20 : float
         Edge electron density [10^20 m^-3]
-    te_edge_ev : float
+    te_edge_eV : float
         Edge electron temperature [eV]
 
     Returns
@@ -260,20 +253,21 @@ def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_ev):
     ccd : float
         Charge exchange recombination rate coefficient [m^3/s]
     """
-    log10Te, log10ne, scd_spl, ccd_spl = build_hydrogen_rate_interpolators()
+    log10Te, log10ne, scd_interp, ccd_interp = build_hydrogen_rate_interpolators()
 
-    # Convert inputs to log10 space that data is stored in
-    logTe_desired = np.log10(te_edge_ev)
-    logne_desired = np.log10(ne_edge_m3)
-    # Clip to grid bounds to avoid extrapolation
-    logTe_desired = np.clip(logTe_desired, log10Te[0], log10Te[-1])
-    logne_desired = np.clip(logne_desired, log10ne[0], log10ne[-1])
-    # Interpolate in log space; spline returns shape (1,1) for scalar inputs
-    scd = np.power(10, float(scd_spl(logTe_desired, logne_desired)))
-    ccd = np.power(10, float(ccd_spl(logTe_desired, logne_desired)))
+    logne_q = np.clip(np.log10(ne_edge_m3), log10ne[0], log10ne[-1])
+    logTe_q = np.clip(np.log10(te_edge_eV), log10Te[0], log10Te[-1])
+
+    # Stack into (..., 2) — exactly what RegularGridInterpolator expects
+    logne_q, logTe_q = np.broadcast_arrays(logne_q, logTe_q)
+    query = np.stack([logne_q, logTe_q], axis=-1)
+
+    scd = np.power(10, scd_interp(query))
+    ccd = np.power(10, ccd_interp(query))
+
     return scd, ccd
 
-def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutral=2.5, te_edge_ev = 100):
+def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutral=2.5, te_edge_eV = 100):
     """
     a0 >= 33*lambda, where lambda is the cold neutral mean free path
     for 50 eV edge neutrals (Sam Frank recommendation on cold neutral energy).
@@ -282,12 +276,12 @@ def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutr
     The density profile is pretty flat according to GDT experiments
     (see Bagryansky, 2015, Figs 5 and 10), so using ne_edge = 0.5 ne20 is conservative
     """
-    ne_edge = 0.5e20 * n_20 # [m^-3]
+    ne_edge = 0.67 * 1e20 * n_20 # [m^-3]
     m_neutral_kg = amu_neutral*const.atomic_mass
     v_neutral = np.sqrt(2*E_neutral_ev*const.e/m_neutral_kg) # [m/s]
-    scd, ccd = get_hydrogen_rate_coeffs(ne_edge_m3=ne_edge, te_edge_ev=te_edge_ev)
+    scd, ccd = get_hydrogen_rate_coeffs(ne_edge_m3=ne_edge, te_edge_eV=te_edge_eV)
     mfp = v_neutral/(ne_edge*scd + ne_edge*ccd)
-    return 33 * mfp
+    return N_mfp * mfp
 
 
 def calculate_a0_end(a_0_center, B_0, B_mirror):
@@ -724,6 +718,7 @@ def calculate_average_fusion_power(P_fusion_MW, t_grid_hrs,
     P_fus_avg : float or array
         Time-averaged fusion power [MW]
     """
+    print(P_fusion_MW)
     CF_annual = calculate_capacity_factor_annual(t_grid_hrs, t_replace_months, eta_duty)
     P_fus_avg = P_fusion_MW * CF_annual
 

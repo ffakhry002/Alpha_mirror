@@ -445,7 +445,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         V_valid = V_plasma.copy()
         V_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
         CS_V = ax.contour(E_b100_grid, n_20_grid, V_valid,
-                          levels=V_levels, colors='white', linewidths=1.5,
+                          levels=V_levels, colors='magenta', linewidths=1.5,
                           alpha=0.9, linestyles='-')
         ax.clabel(CS_V, inline=True, fontsize=9, fmt='V=%.1f m³')
 
@@ -505,10 +505,10 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
     print("="*100)
 
     # Header
-    print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} "
+    print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} {'a0_nmfp':>7}"
           f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
           f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} {'ion_flux_w':>12} {'ero_rate_w':>8} {'end_width':>8}")
-    print(f"{'[keV]':>6} {'[e20]':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} "
+    print(f"{'[keV]':>6} {'[e20]':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} {'[m]':>7}"
           f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
           f"{'[MW/m²]':>6} {'':>6} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>7} {'[mm/yr]':>12} {'[mm]'}")
     print("-"*100)
@@ -525,13 +525,17 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         a_0_DCLC = calculate_a0_DCLC(E_b_100, B_0)
         # BUG FIX: Use beta_local instead of undefined beta
         a_0_adiabatic = calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
-        a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic)
+        a_0_nmfp = calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]
+        print(a_0_nmfp)
+        a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp)
 
         # Determine limiting constraint
-        if a_0_abs >= a_0_DCLC and a_0_abs >= a_0_adiabatic:
+        if a_0_min == a_0_abs:
             limiting_constraint = "Abs"
-        elif a_0_DCLC >= a_0_adiabatic:
+        elif a_0_min == a_0_DCLC:
             limiting_constraint = "DCLC"
+        elif a_0_min == a_0_nmfp:
+            limiting_constraint = "N MFP"
         else:
             limiting_constraint = "Adiabatic"
 
@@ -557,7 +561,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
 
         # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
         print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
-              f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
+              f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_nmfp:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
               f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ion_flux_target/1e20:12.2f} {ero_rate_w:7.4f} {end_ring_thickness}")
 
