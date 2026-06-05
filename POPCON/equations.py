@@ -705,14 +705,10 @@ def calculate_end_ring_thickness(P_nbi, E_b_100keV, a_w):
     Units: mm"""
     permeability_mo = 8e-9 # [mol H2/(m*s*MPa^1/2)]
     permeability_mo = permeability_mo * 1e-3 * const.N_A # [m^-1 s^-1 Pa^-0.5]
-    print(f"permeability_mo: {permeability_mo:e}")
     tritium_flux_target = 0.5 * calculate_ion_flux_on_target(P_nbi=P_nbi, E_b_100keV=E_b_100keV, a_w=a_w)
     tritium_velocity_at_target = np.sqrt(2*(7/6 * E_b_100keV * 1e5*const.e) / (3*const.atomic_mass)) # [m/s]
-    print(f"tritium_velocity_target: {tritium_velocity_at_target} m/s")
     # Ram pressure for absorption in n*m*v^2 = 
     effective_pressure = 3*const.atomic_mass*tritium_flux_target * tritium_velocity_at_target
-    print(f"tritium_flux_target: {tritium_flux_target}")
-    print(f"Effective pressure: {effective_pressure}")
     return permeability_mo * np.sqrt(effective_pressure) / tritium_flux_target
 
 

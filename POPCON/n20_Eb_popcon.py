@@ -26,6 +26,7 @@ from equations import (
     calculate_Bw,
     calculate_a_w,
     calculate_heat_flux,
+    calculate_ion_flux_on_target,
     calculate_target_erosion_rate,
     calculate_end_ring_thickness,
     calculate_grid_lifetime,
@@ -504,10 +505,10 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
     # Header
     print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} "
           f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
-          f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} {'ero_rate_w':>8} {'end_width':>8}")
+          f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} {'ion_flux_w':>12} {'ero_rate_w':>8} {'end_width':>8}")
     print(f"{'[keV]':>6} {'[e20]':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} "
           f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
-          f"{'[MW/m²]':>6} {'':>6} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {'[mm/yr]':>8} {'[mm]'}")
+          f"{'[MW/m²]':>6} {'':>6} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>7} {'[mm/yr]':>12} {'[mm]'}")
     print("-"*100)
 
     for E_b_100, n_20_target in test_points:
@@ -548,6 +549,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         Bw = calculate_Bw(E_b_100keV=E_b_100, B0=B_0, a_0_min=a_0_min)
         q_w = calculate_heat_flux(P_nbi=P_NBI, Q=Q, a_0_min=a_0_min, B0=B_0, Bw=Bw)
         a_w = calculate_a_w(a_0_min=a_0_min, B0=B_0, Bw=Bw)
+        ion_flux_target = calculate_ion_flux_on_target(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
         ero_rate_w = calculate_target_erosion_rate(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
         end_ring_thickness = calculate_end_ring_thickness(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
 
@@ -555,7 +557,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
               f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
-              f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ero_rate_w:7.4f} {end_ring_thickness}")
+              f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ion_flux_target/1e20:12.2f} {ero_rate_w:7.4f} {end_ring_thickness}")
 
     print("="*100 + "\n")
 
