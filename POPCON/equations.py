@@ -486,6 +486,7 @@ def calculate_fusion_power(E_b_100keV, n_20, V_plasma, T_i_keV):
     From LaTeX document Section 1.5
     """
     sigma_v = get_dt_reactivity(T_i_keV)
+    # TODO: Only calculate the fusion power for r < 0.9*a
     P_fusion = 7.04e21 * n_20**2 * V_plasma * sigma_v
 
     if np.isscalar(E_b_100keV) and np.isscalar(n_20) and np.isscalar(V_plasma) and np.isscalar(T_i_keV):
@@ -718,7 +719,6 @@ def calculate_average_fusion_power(P_fusion_MW, t_grid_hrs,
     P_fus_avg : float or array
         Time-averaged fusion power [MW]
     """
-    print(P_fusion_MW)
     CF_annual = calculate_capacity_factor_annual(t_grid_hrs, t_replace_months, eta_duty)
     P_fus_avg = P_fusion_MW * CF_annual
 
