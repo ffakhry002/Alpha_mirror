@@ -4,7 +4,7 @@ Updated to use energy-dependent loss coefficient with double interpolation
 
 import numpy as np
 from pathlib import Path
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, RectBivariateSpline
 import scipy.constants as const
 import pandas as pd
 
@@ -24,6 +24,9 @@ NBI_EFFICIENCY = ETA_ABS
 # ============================================================================
 # DATA LOADING FUNCTIONS
 # ============================================================================
+
+# Module-level cache: built once on first call
+_H_RATE_CACHE = None
 
 def load_dt_reactivity_data():
     """Load D-T fusion reactivity ⟨σv⟩(T) from FusionReactivities.dat"""
@@ -64,8 +67,44 @@ def load_dt_reactivity_data():
     except Exception as e:
         print(f"⚠ Could not load D-T reactivity data: {e}")
         return None
-
+    
 dt_reactivity_interp = load_dt_reactivity_data()
+    
+def build_hydrogen_rate_interpolators():
+    """
+    Reads CSV and builds cubic spline interpolators (called once)
+    for the hydrogen ionization/CX rates when calculating the cold neutral mfp
+    Source (converted by H. Wietfeldt to .csv using aurora): 
+    - https://open.adas.ac.uk/detail/adf11/scd12/scd12_h.dat
+    - https://open.adas.ac.uk/detail/adf11/ccd96/ccd96_h.dat
+
+    """
+    global _H_RATE_CACHE
+    if _H_RATE_CACHE is not None:
+        return _H_RATE_CACHE
+
+    df = pd.read_csv('POPCON/edge_neutrals/hydrogen_rate_coeffs.csv')
+
+    # Recover the unique sorted 1D axes
+    log10Te = np.sort(df['log10Te_eV'].unique())   # shape (n_Te,)
+    log10ne = np.sort(df['log10ne_m3'].unique())   # shape (n_ne,)
+    n_Te, n_ne = len(log10Te), len(log10ne)
+
+    # Sort to guarantee (ne outer, Te inner) ordering, then reshape
+    # This matches the meshgrid(indexing='ij') + ravel() used when writing
+    df = df.sort_values(['log10ne_m3', 'log10Te_eV'])
+    log10scd_2d = df['log10scd_m3s'].values.reshape(n_ne, n_Te)  # (n_ne, n_Te)
+    log10ccd_2d = df['log10ccd_m3s'].values.reshape(n_ne, n_Te)  # (n_ne, n_Te)
+
+    # RectBivariateSpline(x, y, z) requires z.shape == (len(x), len(y))
+    # → axes are (log10Te, log10ne), so transpose to (n_Te, n_ne)
+    scd_spl = RectBivariateSpline(log10Te, log10ne, log10scd_2d.T, kx=3, ky=3)
+    ccd_spl = RectBivariateSpline(log10Te, log10ne, log10ccd_2d.T, kx=3, ky=3)
+
+    _H_RATE_CACHE = (log10Te, log10ne, scd_spl, ccd_spl)
+    return _H_RATE_CACHE
+
+
 
 # ============================================================================
 # FUSION REACTIVITY
@@ -201,6 +240,39 @@ def calculate_a0_adiabaticity(E_b_100keV, B_0, beta):
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
     return 50 * rho_i * (1 - np.sqrt(1 - beta))
 
+def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_ev):
+    """
+    Returns the effective ionization (SCD) and charge exchange cross-coupling (CCD) hydrogen
+    rate coefficients for edge density ne_edge [m^-3] and edge temperature te_edge_ev
+    based on ADAS11 data using a cubic interpolation.
+
+    Parameters
+    ----------
+    n_20 : float
+        Edge electron density [10^20 m^-3]
+    te_edge_ev : float
+        Edge electron temperature [eV]
+
+    Returns
+    -------
+    scd : float
+        Ionization rate coefficient [m^3/s]
+    ccd : float
+        Charge exchange recombination rate coefficient [m^3/s]
+    """
+    log10Te, log10ne, scd_spl, ccd_spl = build_hydrogen_rate_interpolators()
+
+    # Convert inputs to log10 space that data is stored in
+    logTe_desired = np.log10(te_edge_ev)
+    logne_desired = np.log10(ne_edge_m3)
+    # Clip to grid bounds to avoid extrapolation
+    logTe_desired = np.clip(logTe_desired, log10Te[0], log10Te[-1])
+    logne_desired = np.clip(logne_desired, log10ne[0], log10ne[-1])
+    # Interpolate in log space; spline returns shape (1,1) for scalar inputs
+    scd = np.power(10, float(scd_spl(logTe_desired, logne_desired)))
+    ccd = np.power(10, float(ccd_spl(logTe_desired, logne_desired)))
+    return scd, ccd
+
 def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutral=2.5, te_edge_ev = 100):
     """
     a0 >= 33*lambda, where lambda is the cold neutral mean free path
@@ -213,8 +285,8 @@ def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutr
     ne_edge = 0.5e20 * n_20 # [m^-3]
     m_neutral_kg = amu_neutral*const.atomic_mass
     v_neutral = np.sqrt(2*E_neutral_ev*const.e/m_neutral_kg) # [m/s]
-    mfp = 0
-    # TODO: Implement mfp calculation using ADAS values
+    scd, ccd = get_hydrogen_rate_coeffs(ne_edge_m3=ne_edge, te_edge_ev=te_edge_ev)
+    mfp = v_neutral/(ne_edge*scd + ne_edge*ccd)
     return 33 * mfp
 
 
