@@ -54,7 +54,7 @@ P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth
 
 # Revenue per volume background for POPCON [$/yr/m³]
 max_rev_per_vol = 2.7e9  # $20M/yr/m³
-min_rev_per_vol = 1.8e9
+min_rev_per_vol = 0
 Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
 
 # Minor radius contour levels [m]
@@ -65,7 +65,7 @@ a0_levels = np.array([])
 P_fus_levels = np.array([])
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array([10, 20, 30, 34, 40])
+P_NBI_levels = np.array([10, 20, 30, 35, 42, 45, 50, 55, 60])
 
 # On-axis field contour levels [T]
 B_0_levels = np.array([0])
@@ -103,7 +103,7 @@ q_w_levels = np.array([])
 # Volume contour levels [m³]
 V_levels = np.array([])
 
-test_points_list = [(0.4737, 2.17), (0.6, 2.1), (0.55, 2.2)
+test_points_list = [(0.4737, 2.17), (0.6, 2.1), (0.55, 2.), (0.70, 1.8)
 
 
 ]
