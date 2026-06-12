@@ -811,7 +811,7 @@ if __name__ == "__main__":
     best_P_fusion = 0
 
     for P_NBI_target in P_NBI_list:
-        data = all_results[P_NBI_target]
+        data = all_results_Pfus[P_NBI_target]
 
         if len(data['Eb']) == 0:
             continue

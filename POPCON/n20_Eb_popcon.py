@@ -118,15 +118,17 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Calculate plasma geometry using FRUSTUM model
     L_plasma = np.zeros_like(a_0_min)
     V_plasma = np.zeros_like(a_0_min)
+    V_fus = np.zeros_like(a_0_min)
     vessel_surface_area = np.zeros_like(a_0_min)
 
     for i in range(n_grid_points):
         for j in range(n_grid_points):
-            L, V, Vf, A = calculate_plasma_geometry_frustum(
+            L, Vp, Vf, A = calculate_plasma_geometry_frustum(
                 a_0_min[i, j], a_0_end[i, j], E_b100_grid[i, j], B_0_grid[i, j]
             )
             L_plasma[i, j] = L
-            V_plasma[i, j] = V
+            V_plasma[i, j] = Vp
+            V_fus[i,j] = Vf
             vessel_surface_area[i, j] = A
 
     # Calculate loss coefficient - use vacuum mirror ratio
@@ -151,10 +153,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
             try:
                 # Calculate temperature from Egedal scaling
                 T_i = T_i_coeff * E_NBI_keV
-                V = V_plasma[i, j]
+                Vf = V_fus[i, j]
 
                 # Calculate fusion power
-                P_fusion = calculate_fusion_power(E_b_100_point, n_20_point, V, T_i)
+                P_fusion = calculate_fusion_power(E_b_100_point, n_20_point, Vf, T_i)
 
                 # Calculate Q
                 if P_NBI_required[i, j] > 0:
@@ -187,7 +189,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                                                 t_replace_months=t_replace, eta_duty=eta_duty)
 
     # Calculate capacity factor adjusted fusion power density [MW/m³]
-    P_fus_avg_density = P_fus_avg / V_plasma
+    P_fus_avg_density = P_fus_avg / V_fus
 
     # Calculate Revenue/Volume using capacity factor adjusted fusion power
     Revenue = calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
@@ -548,7 +550,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         C_loss = calculate_loss_coefficient(E_b_100, R_M_vac)
 
         T_i = T_i_coeff * E_NBI_keV
-        P_fusion = calculate_fusion_power(E_b_100, n_20_target, V_plasma, T_i)
+        P_fusion = calculate_fusion_power(E_b_100, n_20_target, V_fus, T_i)
         P_NBI = calculate_NBI_power(n_20_target, V_plasma, E_b_100, R_M_vac, C_loss)
         NWL = calculate_NWL(P_fusion, vessel_surface_area)
         Q = calculate_Q(P_fusion, P_NBI)
