@@ -593,7 +593,7 @@ def calculate_grid_lifetime(E_b_keV, P_NBI_MW, d_mm=3.0, sigma_x_cm=4.3,
     E_b_keV : float or array
         Beam energy [keV] (NOT 100 keV units)
     P_NBI_MW : float or array
-        NBI power [MW]
+        NBI power built into mirror (2x flattop power) [MW]
     d_mm : float
         Grid thickness erosion limit [mm] (default: 3.0)
     sigma_x_cm : float
@@ -615,11 +615,13 @@ def calculate_grid_lifetime(E_b_keV, P_NBI_MW, d_mm=3.0, sigma_x_cm=4.3,
     d_m = d_mm * 1e-3                    # mm → m
     sigma_x_m = sigma_x_cm * 1e-2        # cm → m
     sigma_y_m = sigma_y_cm * 1e-2        # cm → m
-    P_NBI_W = P_NBI_MW * 1e6             # MW → W
+    P_NBI_W = P_NBI_MW * 1e6        # MW → W
     E_b_V = E_b_keV * 1e3                # keV → V
 
-    # Power per grid
-    P_per_grid = P_NBI_W / num_grids     # W
+    # Power per grid. Only need full NBI power during ramp-up. 
+    # During flattop, just need 0.5x built in Pnbi
+    # For CW, ramp-up is negligible period of operation, so use 0.5xPnbi
+    P_per_grid = 0.5 * P_NBI_W / num_grids     # W
 
     # Current per grid (I = P/V)
     I_per_grid = P_per_grid / E_b_V      # A

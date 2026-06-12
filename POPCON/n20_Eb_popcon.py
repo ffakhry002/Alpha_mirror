@@ -565,7 +565,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
 
         t_grid = calculate_grid_lifetime(
             E_NBI_keV,  # Convert to keV (not 100 keV units!)
-            P_NBI,
+            P_NBI, 
             d_mm=d_grid,
             sigma_x_cm=sigma_x_beam,
             sigma_y_cm=sigma_y_beam,
@@ -578,7 +578,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         rev_per_vol = calculate_isotope_revenue(P_fus_avg) / V_plasma
 
         # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
-        print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {rev_per_vol/1e6:6.3e} {CF_annual:6.3f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
+        print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {rev_per_vol/1e6:6.0f} {CF_annual:6.3f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
               f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_nmfp:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
               f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ion_flux_target/1e20:12.2f} {ero_rate_w:7.4f}")

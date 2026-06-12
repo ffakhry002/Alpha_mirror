@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 28.0         # Maximum mirror field [T]
-B_central_default = 6.0    # Central (conductor) field [T]
+B_central_default = 6.0    # Central (conductor) field [T], corresponds to ECRH at 170 GHz (ITER like)
 beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -103,9 +103,12 @@ q_w_levels = np.array([])
 # Volume contour levels [m³]
 V_levels = np.array([])
 
-test_points_list = [(0.4737, 2.17), (0.6, 2.1), (0.55, 2.), (0.70, 1.8)
-
-
+test_points_list = [(0.40, 2.35), 
+                    (0.4737, 2.102), 
+                    (0.4737, 2.17), 
+                    (0.55, 2.03), 
+                    (0.6, 1.94), 
+                    (0.70, 1.79),
 ]
 
 figures_dir = Path(__file__).parent / 'figures'
