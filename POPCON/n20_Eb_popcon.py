@@ -2,6 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from pathlib import Path
 
 # Import from our modular files
@@ -45,8 +46,10 @@ from n20_Eb_inputs import (
     T_e_coeff,
     E_b_min,
     E_b_max,
+    n_20_min,
     n_grid_points,
     Q_levels,
+    min_NWL,
     NWL_background,
     NWL_levels,
     P_fus_background,
@@ -91,7 +94,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Create grid using input E_b range
     E_b100 = np.linspace(E_b_min, E_b_max, n_grid_points)
     n_20_max = calculate_beta_limit(E_b_min, B_central, beta_c)
-    n_20 = np.linspace(0.01, n_20_max, n_grid_points)
+    n_20 = np.linspace(n_20_min, n_20_max, n_grid_points)
 
     E_b100_grid, n_20_grid = np.meshgrid(E_b100, n_20)
 
@@ -118,15 +121,17 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Calculate plasma geometry using FRUSTUM model
     L_plasma = np.zeros_like(a_0_min)
     V_plasma = np.zeros_like(a_0_min)
+    V_fus = np.zeros_like(a_0_min)
     vessel_surface_area = np.zeros_like(a_0_min)
 
     for i in range(n_grid_points):
         for j in range(n_grid_points):
-            L, V, A = calculate_plasma_geometry_frustum(
+            L, Vp, Vf, A = calculate_plasma_geometry_frustum(
                 a_0_min[i, j], a_0_end[i, j], E_b100_grid[i, j], B_0_grid[i, j]
             )
             L_plasma[i, j] = L
-            V_plasma[i, j] = V
+            V_plasma[i, j] = Vp
+            V_fus[i,j] = Vf
             vessel_surface_area[i, j] = A
 
     # Calculate loss coefficient - use vacuum mirror ratio
@@ -151,10 +156,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
             try:
                 # Calculate temperature from Egedal scaling
                 T_i = T_i_coeff * E_NBI_keV
-                V = V_plasma[i, j]
+                Vf = V_fus[i, j]
 
                 # Calculate fusion power
-                P_fusion = calculate_fusion_power(E_b_100_point, n_20_point, V, T_i)
+                P_fusion = calculate_fusion_power(E_b_100_point, n_20_point, Vf, T_i)
 
                 # Calculate Q
                 if P_NBI_required[i, j] > 0:
@@ -187,7 +192,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                                                 t_replace_months=t_replace, eta_duty=eta_duty)
 
     # Calculate capacity factor adjusted fusion power density [MW/m³]
-    P_fus_avg_density = P_fus_avg / V_plasma
+    P_fus_avg_density = P_fus_avg / V_fus
 
     # Calculate Revenue/Volume using capacity factor adjusted fusion power
     Revenue = calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
@@ -230,7 +235,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # mask_impractical = a_0_min > a0_limit  # REMOVED: No max a0 limit
     mask_min_a0 = a_0_min < min_a0  # Minimum radius constraint
     mask_heat_flux = q_w >= 5
-    mask_low_NWL = NWL_beam_target < 0.0
+    mask_low_NWL = NWL_beam_target < min_NWL
 
     # NEW: Mask for invalid Bw region
     # Valid when Bw < B_max/74 (calculated end-wall field must be achievable)
@@ -267,8 +272,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     max_P_fus_background = 25.0  # MW
     P_fus_background_levels = np.linspace(0, max_P_fus_background, 100)
 
-    im = ax.contourf(E_b100_grid, n_20_grid, P_fus_valid,
-                     levels=P_fus_background_levels, cmap='viridis', extend='max')
+    im = ax.contourf(E_b100_grid, n_20_grid, Rev_per_Vol,
+                     levels=Rev_per_Vol_background, cmap='viridis', extend='max')
 
     # Also prepare NWL for contour lines (not background)
     NWL_valid = NWL_beam_target.copy()
@@ -457,7 +462,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=14)
     ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=14)
     ax.set_xlim([E_b_min, E_b_max])
-    ax.set_ylim([0, 5])
+    ax.set_ylim([n_20_min, 4])
 
     # Force linear tick formatting
     ax.ticklabel_format(style='plain', axis='x')
@@ -469,13 +474,13 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.legend(loc='lower left', fontsize=10)
 
     # ===========================================================================
-    # CHANGED: Colorbar for P_fus (max 10 MW)
+    # CHANGED: Colorbar for P_fus (max 10 MW)-- Change back to Rev/Vol
     # ===========================================================================
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label(r'$P_{fus}$ [MW]', fontsize=12)
-    cbar_ticks = np.linspace(0, max_P_fus_background, 6)
-    cbar.set_ticks(cbar_ticks)
-    cbar.set_ticklabels([f'{x:.1f}' for x in cbar_ticks])
+    cbar.set_label(r'Revenue / Vol', fontsize=12)
+    #cbar_ticks = np.linspace(0, max_, 6)
+    #cbar.set_ticks(cbar_ticks)
+    #cbar.set_ticklabels([f'{x:.1f}' for x in cbar_ticks])
     cbar.ax.tick_params(labelsize=10)
 
     # Grid
@@ -505,12 +510,12 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
     print("="*100)
 
     # Header
-    print(f"\n{'E_b':>6} {'n_20':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} {'a0_nmfp':>7}"
+    print(f"\n{'E_b':>6} {'n_20':>6} {'Rev/V':>8} {'CF':>6} {'β':>8} {'B_0':>6} {'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} {'a0_nmfp':>7}"
           f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
-          f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} {'ion_flux_w':>12} {'ero_rate_w':>8} {'end_width':>8}")
-    print(f"{'[keV]':>6} {'[e20]':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} {'[m]':>7}"
+          f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} {'ion_flux_w':>12} {'ero_rate_w':>8}")
+    print(f"{'[keV]':>6} {'[e20]':>6} {'[$M/yr/m^3]':>8} {'':>6} {'':>8} {'[T]':>6} {'':>7} {'[m]':>7} {'[m]':>7} {'[m]':>7}"
           f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
-          f"{'[MW/m²]':>6} {'':>6} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>7} {'[mm/yr]':>12} {'[mm]'}")
+          f"{'[MW/m²]':>6} {'':>6} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>12} {'[mm/yr]':>12}")
     print("-"*100)
 
     for E_b_100, n_20_target in test_points:
@@ -526,7 +531,6 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         # BUG FIX: Use beta_local instead of undefined beta
         a_0_adiabatic = calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
         a_0_nmfp = calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]
-        print(a_0_nmfp)
         a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp)
 
         # Determine limiting constraint
@@ -541,14 +545,14 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
 
         a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
 
-        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
             a_0_min, a_0_end, E_b_100, B_0
         )
 
         C_loss = calculate_loss_coefficient(E_b_100, R_M_vac)
 
         T_i = T_i_coeff * E_NBI_keV
-        P_fusion = calculate_fusion_power(E_b_100, n_20_target, V_plasma, T_i)
+        P_fusion = calculate_fusion_power(E_b_100, n_20_target, V_fus, T_i)
         P_NBI = calculate_NBI_power(n_20_target, V_plasma, E_b_100, R_M_vac, C_loss)
         NWL = calculate_NWL(P_fusion, vessel_surface_area)
         Q = calculate_Q(P_fusion, P_NBI)
@@ -559,11 +563,25 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         ero_rate_w = calculate_target_erosion_rate(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
         end_ring_thickness = calculate_end_ring_thickness(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
 
+        t_grid = calculate_grid_lifetime(
+            E_NBI_keV,  # Convert to keV (not 100 keV units!)
+            P_NBI, 
+            d_mm=d_grid,
+            sigma_x_cm=sigma_x_beam,
+            sigma_y_cm=sigma_y_beam,
+            num_grids=num_grids
+        )
+        CF_annual = calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
+        P_fus_avg = calculate_average_fusion_power(P_fusion, t_grid,
+                                                    t_replace_months=t_replace, eta_duty=eta_duty)
+
+        rev_per_vol = calculate_isotope_revenue(P_fus_avg) / V_plasma
+
         # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
-        print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
+        print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {rev_per_vol/1e6:6.0f} {CF_annual:6.3f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
               f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_nmfp:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
-              f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ion_flux_target/1e20:12.2f} {ero_rate_w:7.4f} {end_ring_thickness}")
+              f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ion_flux_target/1e20:12.2f} {ero_rate_w:7.4f}")
 
     print("="*100 + "\n")
 

@@ -293,31 +293,44 @@ def calculate_a0_end(a_0_center, B_0, B_mirror):
     a_0_end = a_0_center * np.sqrt(B_0 / B_mirror)
     return a_0_end
 
+def get_plasma_volume(a_center, a_end, legnth):
+    """
+    Calculates the plasma volume using a three-segment geometry: 
+    frustum + cyclinder + frustum, all of equal length
+    Parameters:
+    a_center : float, radius of cylinder
+    a_end: float, radius of smaller frustum circular base
+    length: length of frustum and cylinder segments
+
+    Returns: float, plasma volume
+    """
+    # Frustum volume formula: Wikipedia
+    V_frustum = np.pi / 3 * legnth * a_end**2 + a_center**2 + a_center*a_end
+    V_cylinder = np.pi * a_center**2 * legnth
+    return V_cylinder + 2*V_frustum
 
 def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     """
     Three-segment geometry: frustum-cylinder-frustum
     Constant standoff: 0.1 × a_0_min absolute gap at all axial positions
-
+    The effective plasma volume for fusion is calculated assuming that fusion
+    occurs from 0 < r < 0.9*a_0_min because the penetration of cold neutrals
+    cools the plasma for r > 0.9*a_0_min
     Length constraint from FLR stability: L ≥ a²/ρᵢ
     """
     # Total length from FLR stability: L = a² / rho_i
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
-    L_plasma = a_0_min**2 / rho_i
+    # From Derek, L in the FLR stability is the length between the ion turning points.
+    # From Erick's B(z) and 45deg injection, the length between the turning points
+    # is roughly half of the length between the mirror throats. Thus add factor of 2.
+    L_plasma = 2*a_0_min**2 / rho_i
 
     # Each segment is L/3
     L_segment = L_plasma / 3
 
-    # Volume of one frustum (plasma only, no standoff in volume)
-    V_frustum = (1/3) * np.pi * L_segment * (
-        a_0_min**2 + a_0_end**2 + a_0_min * a_0_end
-    )
-
-    # Volume of cylinder (plasma only)
-    V_cylinder = np.pi * a_0_min**2 * L_segment
-
     # Total plasma volume
-    V_plasma = V_cylinder + 2 * V_frustum
+    V_plasma = get_plasma_volume(a_0_min, a_0_end, L_segment)
+    V_plasma_fus = get_plasma_volume(0.9*a_0_min, 0.9*a_0_end, L_segment)
 
     # Surface area - CONSTANT absolute standoff of 0.1 × a_0_min everywhere
     standoff = 0.1 * a_0_min  # Constant absolute gap
@@ -334,7 +347,7 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     # Total vessel surface area
     vessel_surface_area = 2 * A_frustum + A_cylinder
 
-    return L_plasma, V_plasma, vessel_surface_area
+    return L_plasma, V_plasma, V_plasma_fus, vessel_surface_area
 
 # ============================================================================
 # COLLISIONAL QUANTITIES
@@ -580,7 +593,7 @@ def calculate_grid_lifetime(E_b_keV, P_NBI_MW, d_mm=3.0, sigma_x_cm=4.3,
     E_b_keV : float or array
         Beam energy [keV] (NOT 100 keV units)
     P_NBI_MW : float or array
-        NBI power [MW]
+        NBI power built into mirror (2x flattop power) [MW]
     d_mm : float
         Grid thickness erosion limit [mm] (default: 3.0)
     sigma_x_cm : float
@@ -602,11 +615,13 @@ def calculate_grid_lifetime(E_b_keV, P_NBI_MW, d_mm=3.0, sigma_x_cm=4.3,
     d_m = d_mm * 1e-3                    # mm → m
     sigma_x_m = sigma_x_cm * 1e-2        # cm → m
     sigma_y_m = sigma_y_cm * 1e-2        # cm → m
-    P_NBI_W = P_NBI_MW * 1e6             # MW → W
+    P_NBI_W = P_NBI_MW * 1e6        # MW → W
     E_b_V = E_b_keV * 1e3                # keV → V
 
-    # Power per grid
-    P_per_grid = P_NBI_W / num_grids     # W
+    # Power per grid. Only need full NBI power during ramp-up. 
+    # During flattop, just need 0.5x built in Pnbi
+    # For CW, ramp-up is negligible period of operation, so use 0.5xPnbi
+    P_per_grid = 0.5 * P_NBI_W / num_grids     # W
 
     # Current per grid (I = P/V)
     I_per_grid = P_per_grid / E_b_V      # A
