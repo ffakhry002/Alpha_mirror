@@ -122,7 +122,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     for i in range(n_grid_points):
         for j in range(n_grid_points):
-            L, V, A = calculate_plasma_geometry_frustum(
+            L, V, Vf, A = calculate_plasma_geometry_frustum(
                 a_0_min[i, j], a_0_end[i, j], E_b100_grid[i, j], B_0_grid[i, j]
             )
             L_plasma[i, j] = L
@@ -541,7 +541,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
 
         a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
 
-        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
             a_0_min, a_0_end, E_b_100, B_0
         )
 

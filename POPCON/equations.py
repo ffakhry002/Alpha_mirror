@@ -293,31 +293,42 @@ def calculate_a0_end(a_0_center, B_0, B_mirror):
     a_0_end = a_0_center * np.sqrt(B_0 / B_mirror)
     return a_0_end
 
+def get_plasma_volume(a_center, a_end, legnth):
+    """
+    Calculates the plasma volume using a three-segment geometry: 
+    frustum + cyclinder + frustum, all of equal length
+    Parameters:
+    a_center : float, radius of cylinder
+    a_end: float, radius of smaller frustum circular base
+    length: length of frustum and cylinder segments
+
+    Returns: float, plasma volume
+    """
+    # Frustum volume formula: Wikipedia
+    V_frustum = np.pi / 3 * legnth * a_end**2 + a_center**2 + a_center*a_end
+    V_cylinder = np.pi * a_center**2 * legnth
+    return V_cylinder + 2*V_frustum
 
 def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     """
     Three-segment geometry: frustum-cylinder-frustum
     Constant standoff: 0.1 × a_0_min absolute gap at all axial positions
-
+    The effective plasma volume for fusion is calculated assuming that fusion
+    occurs from 0 < r < 0.9*a_0_min because the penetration of cold neutrals
+    cools the plasma for r > 0.9*a_0_min
     Length constraint from FLR stability: L ≥ a²/ρᵢ
     """
     # Total length from FLR stability: L = a² / rho_i
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
+    # TODO: Adjust length constraint based on location of tunring points
     L_plasma = a_0_min**2 / rho_i
 
     # Each segment is L/3
     L_segment = L_plasma / 3
 
-    # Volume of one frustum (plasma only, no standoff in volume)
-    V_frustum = (1/3) * np.pi * L_segment * (
-        a_0_min**2 + a_0_end**2 + a_0_min * a_0_end
-    )
-
-    # Volume of cylinder (plasma only)
-    V_cylinder = np.pi * a_0_min**2 * L_segment
-
     # Total plasma volume
-    V_plasma = V_cylinder + 2 * V_frustum
+    V_plasma = get_plasma_volume(a_0_min, a_0_end, L_segment)
+    V_plasma_fus = get_plasma_volume(0.9*a_0_min, 0.9*a_0_end, L_segment)
 
     # Surface area - CONSTANT absolute standoff of 0.1 × a_0_min everywhere
     standoff = 0.1 * a_0_min  # Constant absolute gap
@@ -334,7 +345,7 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     # Total vessel surface area
     vessel_surface_area = 2 * A_frustum + A_cylinder
 
-    return L_plasma, V_plasma, vessel_surface_area
+    return L_plasma, V_plasma, V_plasma_fus, vessel_surface_area
 
 # ============================================================================
 # COLLISIONAL QUANTITIES

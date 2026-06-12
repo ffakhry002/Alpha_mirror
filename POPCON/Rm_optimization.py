@@ -90,7 +90,7 @@ def check_feasibility(E_b_100keV, n_20, B_central, B_max):
 
     # Calculate geometry with new frustum model
     a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
-    L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+    L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
         a_0_min, a_0_end, E_b_100keV, B_0
     )
 
@@ -143,7 +143,7 @@ def find_n20_for_PNBI(E_b_100keV, P_NBI_target, B_central, B_max, n_20_search_ra
         a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic)
 
         a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
-        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
             a_0_min, a_0_end, E_b_100keV, B_0
         )
 
@@ -179,7 +179,7 @@ def find_n20_for_PNBI(E_b_100keV, P_NBI_target, B_central, B_max, n_20_search_ra
                 a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic)
 
                 a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
-                L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+                L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
                     a_0_min, a_0_end, E_b_100keV, B_0
                 )
 
@@ -856,7 +856,7 @@ if __name__ == "__main__":
         a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic)
 
         a_0_end = calculate_a0_end(a_0_min, B_0, B_max_default)
-        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
             a_0_min, a_0_end, E_b_100keV, B_0
         )
 

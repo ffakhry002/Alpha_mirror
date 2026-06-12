@@ -42,7 +42,7 @@ def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.
     a_0_min_max = np.maximum(a_0_abs_max, a_0_FLR_max)
 
     a_0_FLR_mirror_max = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
-    L_plasma_max, V_plasma_max, vessel_surface_area_max = calculate_plasma_geometry_frustum(
+    L_plasma_max, V_plasma_max, V_fus_max, V_essel_surface_area_max = calculate_plasma_geometry_frustum(
         a_0_min_max, a_0_FLR_mirror_max, N_rho
     )
 
@@ -73,7 +73,7 @@ def find_n20_for_target_NWL(E_b_keV, R_M, target_NWL, B_max, beta_c, n_20_min=0.
         a_0_min = np.maximum(a_0_abs, a_0_FLR)
 
         a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
-        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus_max, vessel_surface_area = calculate_plasma_geometry_frustum(
             a_0_min, a_0_FLR_mirror, N_rho
         )
 
@@ -119,7 +119,7 @@ def test_specific_point(R_M=5.93, E_b_keV=100, target_NWL=1.0, B_max=B_max_defau
         a_0_min = max(a_0_abs, a_0_FLR)
 
         a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
-        L_plasma, V_plasma, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus_max, vessel_surface_area = calculate_plasma_geometry_frustum(
             a_0_min, a_0_FLR_mirror, N_rho
         )
 
@@ -410,7 +410,7 @@ def find_minimum_PNBI_points(E_b_keV=E_b_keV_fixed, B_max=B_max_default):
                     B_0_array.append(B_0)
 
                     a_0_FLR_mirror = calculate_a0_FLR_at_mirror(E_b_100keV, B_max, N_25)
-                    L_plasma, V_plasma, _ = calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho)
+                    L_plasma, V_plasma, V_fus, _ = calculate_plasma_geometry_frustum(a_0_min, a_0_FLR_mirror, N_rho)
 
                     a_0_array.append(a_0_min)
                     L_array.append(L_plasma)
