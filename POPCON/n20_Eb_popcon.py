@@ -304,14 +304,14 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     NWL_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
 
     # Beta limit line
-    ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=3, zorder=5,
+    ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=4, zorder=5,
             label='Beta limit')
 
     # Minimum a0 boundary line
     min_a0_boundary = a_0_min - min_a0
     ax.contour(E_b100_grid, n_20_grid, min_a0_boundary,
-               levels=[0], colors=['orange'], linewidths=2, linestyles='--', zorder=4)
-    ax.plot([], [], color='orange', linewidth=2, linestyle='--',
+               levels=[0], colors=['k'], linewidths=4, linestyles='-', zorder=4)
+    ax.plot([], [], color='k', linewidth=4, linestyle='-',
             label=f"a0={min_a0:.2f}m min")
 
     # NEW: Bw = B_max/74 boundary line (valid below, invalid above)
@@ -385,15 +385,16 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         ax.clabel(CS_B0, inline=True, fontsize=8, fmt='B₀=%.1f T')
 
     # P_NBI contours
-    P_NBI_valid = P_NBI_required.copy()
-    P_NBI_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
-    CS_PNBI = ax.contour(E_b100_grid, n_20_grid, P_NBI_valid,
-                         levels=P_NBI_levels, colors='red', linewidths=2.5,
-                         alpha=1.0, linestyles='-')
-    add_label_outline(ax.clabel(CS_PNBI, inline=True, fontsize=12, fmt='%.0f'), foreground='k')
-    h, _ = CS_PNBI.legend_elements()
-    legend_handles.append(h[0])
-    legend_labels.append('$P_{NBI}$ [MW]')
+    if len(P_NBI_levels) > 0:
+        P_NBI_valid = P_NBI_required.copy()
+        P_NBI_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        CS_PNBI = ax.contour(E_b100_grid, n_20_grid, P_NBI_valid,
+                            levels=P_NBI_levels, colors='red', linewidths=2.5,
+                            alpha=1.0, linestyles='-')
+        add_label_outline(ax.clabel(CS_PNBI, inline=True, fontsize=12, fmt='%.0f'), foreground='k')
+        h, _ = CS_PNBI.legend_elements()
+        legend_handles.append(h[0])
+        legend_labels.append('$P_{NBI}$ [MW]')
 
     # Beta contours
     if len(beta_levels) > 0:
@@ -502,13 +503,19 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Gray out hard limits
     ax.contourf(E_b100_grid, n_20_grid, mask_gray.astype(int),
         levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
+    
+    # Text for hard limits
+    ax.text(1.0, 2.75, 'Beta Limit', fontsize=18, c='purple', rotation=-42, zorder=10)
+    ax.text(0.5, 2.9, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=5, zorder=10)
+    ax.text(0.22, 2.65, 'Too small for NBI', fontsize=18, c='k', rotation=80, zorder=10)
 
     # Test point:
     for Eb, n20 in test_points_list:
         star = ax.scatter(Eb, n20, marker='*', s=400, color='magenta', 
                         edgecolors='w', zorder=10)
-    legend_handles.append(star)
-    legend_labels.append('Design Point')
+    if len(test_points_list) > 0:
+        legend_handles.append(star)
+        legend_labels.append('Design Point')
 
     # Formatting
     ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=16)
@@ -523,7 +530,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_xticks(x_ticks)
 
     # Legend
-    ax.legend(legend_handles, legend_labels, fontsize=14, facecolor='dimgray', labelcolor='white', edgecolor='white')
+    ax.legend(legend_handles, legend_labels, loc='upper center', 
+              fontsize=14, facecolor='dimgray', labelcolor='white', edgecolor='white')
 
     # ===========================================================================
     # CHANGED: Colorbar for P_fus (max 10 MW)-- Change back to Rev/Vol
