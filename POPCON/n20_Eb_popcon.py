@@ -506,7 +506,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     
     # Text for hard limits
     ax.text(1.0, 2.75, 'Beta Limit', fontsize=18, c='purple', rotation=-42, zorder=10)
-    ax.text(0.5, 2.9, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=5, zorder=10)
+    ax.text(0.4, 2.82, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
     ax.text(0.22, 2.65, 'Too small for NBI', fontsize=18, c='k', rotation=80, zorder=10)
 
     # Test point:
@@ -537,7 +537,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # CHANGED: Colorbar for P_fus (max 10 MW)-- Change back to Rev/Vol
     # ===========================================================================
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label('Yearly Revenue Per Volume [\$M/yr$m^3$]', fontsize=16)
+    cbar.set_label('Yearly Revenue Per Volume [\$M/yr/$m^3$]', fontsize=16)
     cbar_ticks = np.linspace(0, max_rev_per_vol/1e6, 6)
     cbar.set_ticks(cbar_ticks)
     cbar.set_ticklabels([f'{x:.0f}' for x in cbar_ticks])
