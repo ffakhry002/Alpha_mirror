@@ -1,8 +1,11 @@
 """n20_Eb_popcon.py - Create POPCON plot in n20 vs Eb space and analyze design points"""
 
+import subprocess
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib.patheffects as pe
 from pathlib import Path
 
 # Import from our modular files
@@ -54,9 +57,11 @@ from n20_Eb_inputs import (
     NWL_levels,
     P_fus_background,
     Rev_per_Vol_background,
+    max_rev_per_vol,
     a0_levels,
     min_a0,
     P_fus_levels,
+    P_fus_avg_levels,
     P_NBI_levels,
     B_0_levels,
     beta_levels,
@@ -83,6 +88,20 @@ from n20_Eb_inputs import (
     num_grids,
 )
 
+def add_label_outline(clabels, linewidth=2, foreground='k'):
+    """
+    Add white outline around contour label text so that the text appears
+    visible over a wide range of background colors.
+    """
+    for txt in clabels:
+        txt.set_path_effects([
+            pe.withStroke(linewidth=linewidth, foreground=foreground)
+        ])
+
+def get_git_hash():
+    return subprocess.check_output(
+        ['git', 'rev-parse', '--short', 'HEAD']
+    ).decode('ascii').strip()
 
 def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, test_points_list=test_points_list):
     """Create full POPCON plot with beam-target fusion physics using frustum geometry"""
@@ -264,6 +283,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # ===========================================================================
     # CHANGED: Plot P_fus as background instead of Revenue/Volume
+    # CHANGED AGAIN: Plot Rev/Volume as background instead of Pfus
     # ===========================================================================
     P_fus_valid = P_fusion_beam_target.copy()
     P_fus_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
@@ -272,8 +292,12 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     max_P_fus_background = 25.0  # MW
     P_fus_background_levels = np.linspace(0, max_P_fus_background, 100)
 
-    im = ax.contourf(E_b100_grid, n_20_grid, Rev_per_Vol,
-                     levels=Rev_per_Vol_background, cmap='viridis', extend='max')
+    im = ax.contourf(E_b100_grid, n_20_grid, Rev_per_Vol/1e6,
+                     levels=Rev_per_Vol_background/1e6, cmap='viridis', extend='max')
+    
+    # Handles and labaels for contours
+    legend_handles = []
+    legend_labels = []
 
     # Also prepare NWL for contour lines (not background)
     NWL_valid = NWL_beam_target.copy()
@@ -294,8 +318,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     Bw_boundary = Bw - Bw_max_limit
     CS_Bw_boundary = ax.contour(E_b100_grid, n_20_grid, Bw_boundary,
                levels=[0], colors=['red'], linewidths=2, linestyles=':', zorder=4)
-    ax.plot([], [], color='red', linewidth=2, linestyle=':',
-            label=f"$B_w$=$B_m$/74 limit")
+    # ax.plot([], [], color='red', linewidth=2, linestyle=':',
+    #         label=f"$B_w$=$B_m$/74 limit")
 
     # a₀ contours
     a_0_min_valid = a_0_min.copy()
@@ -317,21 +341,39 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                       alpha=0.8, linestyles='-')
     ax.clabel(CS_Q, inline=True, fontsize=8, fmt='Q=%.2f')
 
-    # ⟨P_fus⟩ contours (capacity factor adjusted fusion power)
+    # P_fus contours (no capacity factor adjustment)
     if len(P_fus_levels) > 0:
+        P_fus_valid = P_fusion_beam_target.copy()
+        P_fus_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        CS_Pfus = ax.contour(E_b100_grid, n_20_grid, P_fus_valid,
+                             levels=P_fus_levels, colors='tan', linewidths=2.5,
+                             alpha=0.9, linestyles='-')
+        h, _ = CS_Pfus.legend_elements()
+        add_label_outline(ax.clabel(CS_Pfus, inline=True, fontsize=12, fmt='%.0f'))
+        legend_handles.append(h[0])
+        legend_labels.append('P_fus [MW]')
+
+    # ⟨P_fus⟩ contours (capacity factor adjusted fusion power)
+    if len(P_fus_avg_levels) > 0:
         P_fus_avg_valid = P_fus_avg.copy()
         P_fus_avg_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
 
-        CS_Pfus = ax.contour(E_b100_grid, n_20_grid, P_fus_avg_valid,
-                             levels=P_fus_levels, colors='magenta', linewidths=2.0,
+        CS_Pfus_avg = ax.contour(E_b100_grid, n_20_grid, P_fus_avg_valid,
+                             levels=P_fus_avg_levels, colors='cyan', linewidths=2.0,
                              alpha=0.9, linestyles='-')
-        ax.clabel(CS_Pfus, inline=True, fontsize=9, fmt='⟨P_fus⟩=%.0f MW')
+        h, _ = CS_Pfus_avg.legend_elements()
+        add_label_outline(ax.clabel(CS_Pfus_avg, inline=True, fontsize=12, fmt='%.0f'))
+        legend_handles.append(h[0])
+        legend_labels.append('⟨P_fus⟩ [MW]')
 
     # NWL contour lines
     CS_NWL = ax.contour(E_b100_grid, n_20_grid, NWL_valid,
-                        levels=NWL_levels, colors='white', linewidths=1.0,
+                        levels=NWL_levels, colors='w', linewidths=2.5,
                         alpha=0.9, linestyles='-')
-    ax.clabel(CS_NWL, inline=True, fontsize=8, fmt='%.1f MW/m²')
+    h, _ = CS_NWL.legend_elements()
+    add_label_outline(ax.clabel(CS_NWL, inline=True, fontsize=12, fmt='%.1f'), foreground='k')
+    legend_handles.append(h[0])
+    legend_labels.append('$P_n/S$ [MW/$m^2$]')
 
     # B₀ contours
     if len(B_0_levels) > 0:
@@ -348,7 +390,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     CS_PNBI = ax.contour(E_b100_grid, n_20_grid, P_NBI_valid,
                          levels=P_NBI_levels, colors='red', linewidths=2.5,
                          alpha=1.0, linestyles='-')
-    ax.clabel(CS_PNBI, inline=True, fontsize=8, fmt='P_NBI=%.0f MW')
+    add_label_outline(ax.clabel(CS_PNBI, inline=True, fontsize=12, fmt='%.0f'), foreground='k')
+    h, _ = CS_PNBI.legend_elements()
+    legend_handles.append(h[0])
+    legend_labels.append('$P_{NBI}$ [MW]')
 
     # Beta contours
     if len(beta_levels) > 0:
@@ -454,15 +499,22 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                           alpha=0.9, linestyles='-')
         ax.clabel(CS_V, inline=True, fontsize=9, fmt='V=%.1f m³')
 
+    # Gray out hard limits
+    ax.contourf(E_b100_grid, n_20_grid, mask_gray.astype(int),
+        levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
+
     # Test point:
     for Eb, n20 in test_points_list:
-        plt.plot(Eb, n20, marker='*', ms=20, c='w')
+        star = ax.scatter(Eb, n20, marker='*', s=400, color='magenta', 
+                        edgecolors='w', zorder=10)
+    legend_handles.append(star)
+    legend_labels.append('Design Point')
 
     # Formatting
-    ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=14)
-    ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=14)
+    ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=16)
+    ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=16)
     ax.set_xlim([E_b_min, E_b_max])
-    ax.set_ylim([n_20_min, 4])
+    ax.set_ylim([n_20_min, 3.5])
 
     # Force linear tick formatting
     ax.ticklabel_format(style='plain', axis='x')
@@ -471,24 +523,24 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_xticks(x_ticks)
 
     # Legend
-    ax.legend(loc='lower left', fontsize=10)
+    ax.legend(legend_handles, legend_labels, fontsize=14, facecolor='dimgray', labelcolor='white', edgecolor='white')
 
     # ===========================================================================
     # CHANGED: Colorbar for P_fus (max 10 MW)-- Change back to Rev/Vol
     # ===========================================================================
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label(r'Revenue / Vol', fontsize=12)
-    #cbar_ticks = np.linspace(0, max_, 6)
-    #cbar.set_ticks(cbar_ticks)
-    #cbar.set_ticklabels([f'{x:.1f}' for x in cbar_ticks])
-    cbar.ax.tick_params(labelsize=10)
+    cbar.set_label('Yearly Revenue Per Volume [\$M/yr$m^3$]', fontsize=16)
+    cbar_ticks = np.linspace(0, max_rev_per_vol/1e6, 6)
+    cbar.set_ticks(cbar_ticks)
+    cbar.set_ticklabels([f'{x:.0f}' for x in cbar_ticks])
+    cbar.ax.tick_params(labelsize=14)
 
     # Grid
     ax.grid(True, alpha=0.2, linestyle=':', linewidth=0.5)
 
     ax.set_title(f'($B_{{max}}$={B_max}T, $B_{{central}}$={B_central:.1f}T, '
                  f'$R_{{M,vac}}$={R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
-                 f'Frustum Geometry | Background: $P_{{fus}}$',
+                 f'Frustum Geometry | Git Hash: {get_git_hash()}',
                  fontsize=12, weight='bold')
 
     plt.tight_layout()
@@ -601,6 +653,7 @@ if __name__ == "__main__":
     test_multiple_points()
 
     # Create main POPCON
+    plt.rcParams['font.size'] = 14
     print("\nCreating main beam-target POPCON...")
     fig_single = create_full_popcon(B_max_default, B_central_default, beta_c_default)
 
