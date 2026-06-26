@@ -209,7 +209,8 @@ def calculate_ion_larmor_radius(E_b_100keV, B_0):
     Ion Larmor radius for NBI-fueled mirror with proper velocity distribution.
     Prefactor 0.04 accounts for 45° injection and thermalization (Forest et al.)
     """
-    rho_i = 0.04 * np.sqrt(E_b_100keV) / B_0
+    # For simplicity and margin for error change 0.04 -> 0.051 for injected ions
+    rho_i = 0.051 * np.sqrt(E_b_100keV) / B_0
     return rho_i
 
 
@@ -221,7 +222,9 @@ def calculate_a0_DCLC(E_b_100keV, B_0):
     Conservative limit ensures kinetic stability even with sloshing ions.
     """
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
-    return 25 * rho_i
+    # This is a bit more aggressive than Forest, but is within a reasonable
+    # range considering we're using sloshing ions (rho_i = 15)
+    return 15 * rho_i
 
 def calculate_a0_adiabaticity(E_b_100keV, B_0, beta):
     """
@@ -267,7 +270,7 @@ def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_eV):
 
     return scd, ccd
 
-def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 33, E_neutral_ev = 50, amu_neutral=2.5, te_edge_eV = 100):
+def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 30, E_neutral_ev = 50, amu_neutral=2.5, te_edge_eV = 100):
     """
     a0 >= 33*lambda, where lambda is the cold neutral mean free path
     for 50 eV edge neutrals (Sam Frank recommendation on cold neutral energy).
@@ -517,7 +520,7 @@ def calculate_NBI_power(n_20, V_plasma, E_b_100keV, Rm_vac, C_loss=None, efficie
     if C_loss is None:
         C_loss = calculate_loss_coefficient(E_b_100keV, Rm_vac)
 
-    P_NBI = 2*(1/efficiency) * 1.6 * n_20**2 * V_plasma / (C_loss * np.sqrt(E_b_100keV) * np.log10(Rm_vac))
+    P_NBI = (1/efficiency) * 1.6 * n_20**2 * V_plasma / (C_loss * np.sqrt(E_b_100keV) * np.log10(Rm_vac))
 
     if np.isscalar(n_20) and np.isscalar(V_plasma) and np.isscalar(E_b_100keV):
         P_NBI = float(P_NBI)
@@ -551,6 +554,19 @@ def calculate_Q(P_fusion, P_NBI):
         Q = float(Q)
 
     return Q
+
+def calculate_max_n20_ecrh(f_ecrh_ghz=200):
+    """
+    Returns the maximum central density [1e20 m^-3]
+    that allows ECRH for the fundamental O-wave at 200 GHz
+    (maximum commercially viable high power ECRH frequency)
+    to reach the plasma core. Assumes the rule of thumb
+    density at sloshing ion turning points to be sqrt(2) factor
+    larger than the central density
+    """
+    n_crit = (2*np.pi*f_ecrh_ghz*1e9/const.e)**2 * const.m_e * const.epsilon_0
+    #n_crit = 81 * (f_ecrh_ghz*1e9)**2
+    return n_crit / np.sqrt(2) / 1e20
 
 # ============================================================================
 # CAPACITY FACTOR AND GRID LIFETIME
@@ -621,7 +637,7 @@ def calculate_grid_lifetime(E_b_keV, P_NBI_MW, d_mm=3.0, sigma_x_cm=4.3,
     # Power per grid. Only need full NBI power during ramp-up. 
     # During flattop, just need 0.5x built in Pnbi
     # For CW, ramp-up is negligible period of operation, so use 0.5xPnbi
-    P_per_grid = 0.5 * P_NBI_W / num_grids     # W
+    P_per_grid = P_NBI_W / num_grids     # W
 
     # Current per grid (I = P/V)
     I_per_grid = P_per_grid / E_b_V      # A

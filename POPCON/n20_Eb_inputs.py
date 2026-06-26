@@ -4,8 +4,8 @@ import numpy as np
 from pathlib import Path
 
 # Magnetic field parameters
-B_max_default = 28.0         # Maximum mirror field [T]
-B_central_default = 6.0    # Central (conductor) field [T], corresponds to ECRH at 170 GHz (ITER like)
+B_max_default = 25.0         # Maximum mirror field [T]
+B_central_default = 5.5    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
 beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -32,7 +32,7 @@ E_b_max = 1.2            # Maximum beam energy [100 keV units]
 n_20_min = 1   # Minimum density [1e20 m^-3]
 
 # Practical engineering limit
-min_a0 = 0.1                # Minimum minor radius [m]
+min_a0 = 0.10                # Minimum minor radius [m]
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
 
 # Grid resolution
@@ -47,13 +47,14 @@ min_NWL = 0. # Constraint on min average NWL (Rule of thumb is peak approx NWL d
 max_NWL = 3.5
 NWL_background = np.linspace(min_NWL, max_NWL, 25)  # Fine resolution for smooth background
 NWL_levels = np.array(np.linspace(min_NWL, 3.0, 20))  # Clean contour lines
+#NWL_levels = np.array([])
 
 # Fusion power background for POPCON
 max_P_fus = 100
 P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
 
 # Revenue per volume background for POPCON [$/yr/m³]
-max_rev_per_vol = 3e9  # $20M/yr/m³
+max_rev_per_vol = 4.5e9  # $20M/yr/m³
 min_rev_per_vol = 0
 Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
 
@@ -63,12 +64,13 @@ a0_levels = np.array([])
 
 # P_fus contour levels (no capacity factor adjusted) [MW]
 P_fus_levels = np.array(np.arange(0, 7, 1))
+#P_fus_levels = np.array([])
 
 # ⟨P_fus⟩ contour levels (capacity factor adjusted) [MW]
 P_fus_avg_levels = np.array([])
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array([42, 50, 60, 70, 80])
+P_NBI_levels = np.array(np.arange(10, 35, 5))
 #P_NBI_levels = np.array([])
 
 # On-axis field contour levels [T]
@@ -105,6 +107,7 @@ a_w_levels = np.array([])
 q_w_levels = np.array([])
 
 # Volume contour levels [m³]
+#V_levels = np.array(np.arange(0, 0.4, 0.05))
 V_levels = np.array([])
 
 # test_points_list = [(0.40, 2.35), 
@@ -114,8 +117,7 @@ V_levels = np.array([])
 #                     (0.6, 1.94), 
 #                     (0.70, 1.79),
 # ]
-test_points_list = [(0.475, 2.17)]
-#test_points_list = []
+test_points_list = [(0.5, 2.5), (0.49, 2.6), (0.48, 2.75), (0.46, 3.0)]
 
 figures_dir = Path(__file__).parent / 'figures'
 figures_dir.mkdir(exist_ok=True)

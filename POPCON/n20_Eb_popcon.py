@@ -28,6 +28,7 @@ from equations import (
     calculate_NBI_power,
     calculate_NWL,
     calculate_Q,
+    calculate_max_n20_ecrh,
     calculate_Bw,
     calculate_a_w,
     calculate_heat_flux,
@@ -262,11 +263,16 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     Bw_max_limit = B_max / 74.0  # Maximum allowable Bw
     mask_Bw_invalid = Bw > Bw_max_limit  # Invalid where Bw exceeds limit
 
+    # Mask for where density is too high for ECRH to heat center
+    n_cutoff = calculate_max_n20_ecrh()
+    print(f"Cutoff density: {n_cutoff}")
+    mask_ecrh_cutoff = n_20_grid > n_cutoff
+
     print(f"Bw range: {np.nanmin(Bw):.3f} - {np.nanmax(Bw):.3f} T")
     print(f"Bw_max_limit (B_max/74): {Bw_max_limit:.3f} T")
     print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
 
-    mask_gray = mask_beta | mask_min_a0 | mask_heat_flux
+    mask_gray = mask_beta | mask_min_a0 | mask_heat_flux | mask_ecrh_cutoff
     mask_black = np.zeros_like(mask_gray, dtype=bool)
     mask_white = (~mask_gray) & mask_low_NWL
 
@@ -313,6 +319,10 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                levels=[0], colors=['k'], linewidths=4, linestyles='-', zorder=4)
     ax.plot([], [], color='k', linewidth=4, linestyle='-',
             label=f"a0={min_a0:.2f}m min")
+    
+    # Max density line for cutoff
+    ax.axhline(n_cutoff, linestyle='-', linewidth=4, c='cyan', zorder=5)
+
 
     # NEW: Bw = B_max/74 boundary line (valid below, invalid above)
     Bw_boundary = Bw - Bw_max_limit
@@ -367,13 +377,14 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         legend_labels.append('⟨P_fus⟩ [MW]')
 
     # NWL contour lines
-    CS_NWL = ax.contour(E_b100_grid, n_20_grid, NWL_valid,
-                        levels=NWL_levels, colors='w', linewidths=2.5,
-                        alpha=0.9, linestyles='-')
-    h, _ = CS_NWL.legend_elements()
-    add_label_outline(ax.clabel(CS_NWL, inline=True, fontsize=12, fmt='%.1f'), foreground='k')
-    legend_handles.append(h[0])
-    legend_labels.append('$P_n/S$ [MW/$m^2$]')
+    if len(NWL_levels) > 0:
+        CS_NWL = ax.contour(E_b100_grid, n_20_grid, NWL_valid,
+                            levels=NWL_levels, colors='w', linewidths=2.5,
+                            alpha=0.9, linestyles='-')
+        h, _ = CS_NWL.legend_elements()
+        add_label_outline(ax.clabel(CS_NWL, inline=True, fontsize=12, fmt='%.1f'), foreground='k')
+        legend_handles.append(h[0])
+        legend_labels.append('$P_n/S$ [MW/$m^2$]')
 
     # B₀ contours
     if len(B_0_levels) > 0:
@@ -505,8 +516,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
     
     # Text for hard limits
-    ax.text(1.0, 2.75, 'Beta Limit', fontsize=18, c='purple', rotation=-42, zorder=10)
-    ax.text(0.4, 2.82, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
+    #ax.text(1.0, 2.75, 'Beta Limit', fontsize=18, c='purple', rotation=-42, zorder=10)
+    #ax.text(0.4, 2.82, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
     ax.text(0.22, 2.65, 'Too small for NBI', fontsize=18, c='k', rotation=80, zorder=10)
 
     # Test point:
@@ -521,7 +532,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=16)
     ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=16)
     ax.set_xlim([E_b_min, E_b_max])
-    ax.set_ylim([n_20_min, 3.5])
+    ax.set_ylim([n_20_min, 4])
 
     # Force linear tick formatting
     ax.ticklabel_format(style='plain', axis='x')
@@ -530,14 +541,14 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     ax.set_xticks(x_ticks)
 
     # Legend
-    ax.legend(legend_handles, legend_labels, loc='upper center', 
+    ax.legend(legend_handles, legend_labels, loc='upper right', 
               fontsize=14, facecolor='dimgray', labelcolor='white', edgecolor='white')
 
     # ===========================================================================
     # CHANGED: Colorbar for P_fus (max 10 MW)-- Change back to Rev/Vol
     # ===========================================================================
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label('Yearly Revenue Per Volume [\$M/yr/$m^3$]', fontsize=16)
+    cbar.set_label('Yearly Revenue Per Volume [$M/yr/$m^3$]', fontsize=16)
     cbar_ticks = np.linspace(0, max_rev_per_vol/1e6, 6)
     cbar.set_ticks(cbar_ticks)
     cbar.set_ticklabels([f'{x:.0f}' for x in cbar_ticks])
@@ -638,7 +649,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         rev_per_vol = calculate_isotope_revenue(P_fus_avg) / V_plasma
 
         # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
-        print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {rev_per_vol/1e6:6.0f} {CF_annual:6.3f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
+        print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {rev_per_vol/1e6:9.0f} {CF_annual:6.3f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
               f"{a_0_abs:7.4f} {a_0_DCLC:7.4f} {a_0_nmfp:7.4f} {a_0_min:7.4f} {L_plasma:6.2f} "
               f"{V_plasma:7.3f} {C_loss:7.4f} {P_fusion:7.2f} {P_NBI:7.2f} "
               f"{NWL:6.3f} {Q:6.3f} {limiting_constraint:>6} {q_w:6.1f} {a_w:6.3} {Bw:6.3} {ion_flux_target/1e20:12.2f} {ero_rate_w:7.4f}")
