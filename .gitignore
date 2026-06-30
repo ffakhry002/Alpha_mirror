@@ -1,3 +1,5 @@
 # Ignore figures and __pycache__ directories
 POPCON/figures
 POPCON/__pycache__
+Rm*.csv
+*.png

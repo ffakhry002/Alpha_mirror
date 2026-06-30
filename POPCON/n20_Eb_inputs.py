@@ -34,6 +34,7 @@ n_20_min = 1   # Minimum density [1e20 m^-3]
 # Practical engineering limit
 min_a0 = 0.1                # Minimum minor radius [m]
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
+max_nbi_power_ftop = 15     # Maximum flattop Pnbi [MW] for two beam duct system
 max_nbi_current = 272    #  JET deuterium current [A]
 
 # Grid resolution
