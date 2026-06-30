@@ -32,8 +32,9 @@ E_b_max = 1.2            # Maximum beam energy [100 keV units]
 n_20_min = 1   # Minimum density [1e20 m^-3]
 
 # Practical engineering limit
-min_a0 = 0.10                # Minimum minor radius [m]
+min_a0 = 0.1                # Minimum minor radius [m]
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
+max_nbi_current = 272    #  JET deuterium current [A]
 
 # Grid resolution
 n_grid_points = 500      # Number of grid points (higher = smoother but slower)
@@ -54,7 +55,7 @@ max_P_fus = 100
 P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
 
 # Revenue per volume background for POPCON [$/yr/m³]
-max_rev_per_vol = 4.5e9  # $20M/yr/m³
+max_rev_per_vol = 5e9  # $20M/yr/m³
 min_rev_per_vol = 0
 Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
 
@@ -70,7 +71,7 @@ P_fus_levels = np.array(np.arange(0, 7, 1))
 P_fus_avg_levels = np.array([])
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array(np.arange(10, 35, 5))
+P_NBI_levels = np.array(np.arange(15, 35, 5))
 #P_NBI_levels = np.array([])
 
 # On-axis field contour levels [T]

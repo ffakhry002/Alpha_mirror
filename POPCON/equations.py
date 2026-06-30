@@ -527,6 +527,17 @@ def calculate_NBI_power(n_20, V_plasma, E_b_100keV, Rm_vac, C_loss=None, efficie
 
     return P_NBI
 
+def calculate_NBI_current(P_NBI, E_b_100keV):
+    """
+    Returns the NBI current in Amps
+    Params:
+    - P_NBI: the NBI power, in MW
+    - E_b_100keV, the NBI energy, in 100 keV
+    """
+    E_b_J = E_b_100keV * 1e5 * const.e
+    P_NBI_W = P_NBI * 1e6
+    return const.e * P_NBI_W / E_b_J
+
 
 def calculate_NWL(P_fusion, vessel_surface_area, neutron_fraction=NEUTRON_FRACTION):
     """
@@ -555,19 +566,34 @@ def calculate_Q(P_fusion, P_NBI):
 
     return Q
 
-def calculate_max_n20_ecrh(f_ecrh_ghz=200):
+def calculate_left_hand_cutoff_density(omega, B):
+    """
+    Returns the left hand cutoff density for X-mode
+    wave frequency omega and magnetic field B.
+    Params:
+    - omega, in units of rad/s
+    - B, in units of T
+    Returns: cutoff density in units of [m^-3]
+    """
+    omega_c = const.e * B / const.m_e
+    prefactor = const.epsilon_0 * const.m_e / const.e**2
+    return prefactor * (omega**2 + omega*omega_c)
+
+def calculate_max_n20_ecrh(B_0, f_ecrh_ghz=200):
     """
     Returns the maximum central density [1e20 m^-3]
-    that allows ECRH for the fundamental O-wave at 200 GHz
-    (maximum commercially viable high power ECRH frequency)
+    that allows ECRH for the fundamental X-wave at frequency
+    f_ecrh_ghz (maximum commercially viable high power ECRH frequency [GHz])
     to reach the plasma core. Assumes the rule of thumb
     density at sloshing ion turning points to be sqrt(2) factor
     larger than the central density
     """
-    # TODO: Update to X-wave
-    n_crit = (2*np.pi*f_ecrh_ghz*1e9/const.e)**2 * const.m_e * const.epsilon_0
-    #n_crit = 81 * (f_ecrh_ghz*1e9)**2
-    return n_crit / np.sqrt(2) / 1e20
+    # Check for cutoff at turning point and axial mid-point
+    n_cutoff_tp = calculate_left_hand_cutoff_density(2e9*np.pi*f_ecrh_ghz, 2*B_0)
+    n_cutoff_mp = calculate_left_hand_cutoff_density(2e9*np.pi*f_ecrh_ghz, B_0)
+    # Find which cutoff limits n20 (midpoint density in units of [1e20 m^-3])
+    crit_n20 = np.minimum(n_cutoff_tp/np.sqrt(2), n_cutoff_mp) / 1e20
+    return crit_n20
 
 # ============================================================================
 # CAPACITY FACTOR AND GRID LIFETIME

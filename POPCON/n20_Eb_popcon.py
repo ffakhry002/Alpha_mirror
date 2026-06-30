@@ -26,6 +26,7 @@ from equations import (
     calculate_max_mirror_ratio_vortex,
     calculate_fusion_power,
     calculate_NBI_power,
+    calculate_NBI_current,
     calculate_NWL,
     calculate_Q,
     calculate_max_n20_ecrh,
@@ -87,6 +88,7 @@ from n20_Eb_inputs import (
     sigma_x_beam,
     sigma_y_beam,
     num_grids,
+    max_nbi_current,
 )
 
 def add_label_outline(clabels, linewidth=2, foreground='k'):
@@ -106,8 +108,6 @@ def get_git_hash():
 
 def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, test_points_list=test_points_list):
     """Create full POPCON plot with beam-target fusion physics using frustum geometry"""
-    fig, ax = plt.subplots(figsize=figure_size)
-
     # Calculate vacuum mirror ratio
     R_M_vac = B_max / B_central
 
@@ -160,6 +160,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate required NBI power
     P_NBI_required = calculate_NBI_power(n_20_grid, V_plasma, E_b100_grid, R_M_vac, C_loss)
+    I_NBI_required = calculate_NBI_current(P_NBI_required, E_b100_grid)
 
     # Calculate beam-target fusion for full grid
     print(f"Calculating beam-target physics for {n_grid_points}×{n_grid_points} grid points...")
@@ -255,6 +256,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     mask_beta = n_20_grid > n_20_beta_limit
     mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < min_NWL
+    #mask_nbi_current_limit = I_NBI_required > max_nbi_current
 
     # NEW: Mask for invalid Bw region
     # Valid when Bw < B_max/74 (calculated end-wall field must be achievable)
@@ -263,7 +265,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     mask_Bw_invalid = Bw > Bw_max_limit  # Invalid where Bw exceeds limit
 
     # Mask for where density is too high for ECRH to heat center
-    n_cutoff = calculate_max_n20_ecrh()
+    n_cutoff = calculate_max_n20_ecrh(B_central)
     print(f"Cutoff density: {n_cutoff}")
     mask_ecrh_cutoff = n_20_grid > n_cutoff
 
@@ -279,6 +281,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     mask_Bw_display = mask_Bw_invalid & (~mask_gray)  # Only show where not already gray
 
     # Fill regions
+    fig, ax = plt.subplots(figsize=figure_size)
     ax.contourf(E_b100_grid, n_20_grid, mask_gray.astype(int),
                 levels=[0.5, 1.5], colors=['lightgray'], alpha=0.8)
 
@@ -296,6 +299,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Create P_fus background levels with max at 10 MW
     max_P_fus_background = 25.0  # MW
     P_fus_background_levels = np.linspace(0, max_P_fus_background, 100)
+
 
     im = ax.contourf(E_b100_grid, n_20_grid, Rev_per_Vol/1e6,
                      levels=Rev_per_Vol_background/1e6, cmap='viridis', extend='max')
@@ -594,17 +598,10 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         # BUG FIX: Use beta_local instead of undefined beta
         a_0_adiabatic = calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
         a_0_nmfp = calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]
-        a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp)
-
-        # Determine limiting constraint
-        if a_0_min == a_0_abs:
-            limiting_constraint = "Abs"
-        elif a_0_min == a_0_DCLC:
-            limiting_constraint = "DCLC"
-        elif a_0_min == a_0_nmfp:
-            limiting_constraint = "N MFP"
-        else:
-            limiting_constraint = "Adiabatic"
+        a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp, min_a0)
+        idx_a_0_min = np.argmax([a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp, min_a0])
+        constraint_labels = ["Abs", "DCLC", "Adiab", "N MFP", "Eng"]
+        limiting_constraint = constraint_labels[idx_a_0_min]
 
         a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
 
