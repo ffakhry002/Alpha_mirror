@@ -94,6 +94,7 @@ from n20_Eb_inputs import (
     sigma_y_beam,
     num_grids,
     max_nbi_current,
+    max_nbi_power_ftop,
 )
 
 def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
@@ -226,11 +227,11 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
     mask_beta = n_20_grid > n_20_beta_limit
     mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < min_NWL
-    mask_nbi_imit = P_NBI_required > max_nbi_current
+    mask_nbi_limit = P_NBI_required > max_nbi_power_ftop
     # Mask for where density is too high for ECRH to heat center
     n_cutoff = calculate_max_n20_ecrh(B_central)
     mask_ecrh_cutoff = n_20_grid > n_cutoff
-    mask_invalid = mask_beta | mask_heat_flux | mask_ecrh_cutoff | mask_low_NWL | mask_nbi_imit
+    mask_invalid = mask_beta | mask_heat_flux | mask_ecrh_cutoff | mask_low_NWL | mask_nbi_limit
     
     # Find max Rev per volume over the valid region by making invalid points -inf
     Rev_per_Vol_valid = np.where(~mask_invalid, Rev_per_Vol, -np.inf)
@@ -281,6 +282,9 @@ if __name__=="__main__":
     plt.xlabel(r'$B_0$ [T]', fontsize=14)
     plt.ylabel(r'$R/V_p$ [\$M/yr/m$^{3}$]', fontsize=14)
     plt.ylim(0, 6000)
+    plt.xticks(np.arange(2.5, 7.5, 0.5))
+    plt.xlim(2.5, 7)
+    plt.grid(True)
     plt.legend(fontsize=14)
     plt.tight_layout()
     plt.savefig('rm_optimization.png')

@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 25.0         # Maximum mirror field [T]
-B_central_default = 6.0    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+B_central_default = 5.75    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
 beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -45,7 +45,7 @@ Q_levels = np.array([
 ])
 
 # Neutron wall loading (NWL) levels and requirement
-min_NWL = 0. # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
+min_NWL = 0.7 # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
 max_NWL = 3.5
 NWL_background = np.linspace(min_NWL, max_NWL, 25)  # Fine resolution for smooth background
 NWL_levels = np.array(np.linspace(min_NWL, 3.0, 20))  # Clean contour lines
