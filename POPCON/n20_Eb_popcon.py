@@ -134,6 +134,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
     a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
     a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), np.maximum(a_0_cold_neutrals, a_0_adiabatic))
+    a_0_min = np.maximum(a_0_min, min_a0) # Practical engineering limit
 
     # Calculate a0 at mirror throat from flux conservation
     a_0_end = calculate_a0_end(a_0_min, B_0_grid, B_max)
@@ -252,8 +253,6 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Create masks for different regions
     mask_beta = n_20_grid > n_20_beta_limit
-    # mask_impractical = a_0_min > a0_limit  # REMOVED: No max a0 limit
-    mask_min_a0 = a_0_min < min_a0  # Minimum radius constraint
     mask_heat_flux = q_w >= 5
     mask_low_NWL = NWL_beam_target < min_NWL
 
@@ -272,7 +271,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     print(f"Bw_max_limit (B_max/74): {Bw_max_limit:.3f} T")
     print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
 
-    mask_gray = mask_beta | mask_min_a0 | mask_heat_flux | mask_ecrh_cutoff
+    mask_gray = mask_beta | mask_heat_flux | mask_ecrh_cutoff
     mask_black = np.zeros_like(mask_gray, dtype=bool)
     mask_white = (~mask_gray) & mask_low_NWL
 
@@ -312,13 +311,6 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Beta limit line
     ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=4, zorder=5,
             label='Beta limit')
-
-    # Minimum a0 boundary line
-    min_a0_boundary = a_0_min - min_a0
-    ax.contour(E_b100_grid, n_20_grid, min_a0_boundary,
-               levels=[0], colors=['k'], linewidths=4, linestyles='-', zorder=4)
-    ax.plot([], [], color='k', linewidth=4, linestyle='-',
-            label=f"a0={min_a0:.2f}m min")
     
     # Max density line for cutoff
     ax.axhline(n_cutoff, linestyle='-', linewidth=4, c='cyan', zorder=5)

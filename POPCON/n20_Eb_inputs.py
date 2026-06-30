@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 25.0         # Maximum mirror field [T]
-B_central_default = 5.5    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+B_central_default = 6.0    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
 beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -13,7 +13,7 @@ T_i_coeff = 2/3          # Ti = (2/3)E_b [keV]
 T_e_coeff = 0.1          # Te = 0.1E_b [keV]
 
 # NBI efficiency
-ETA_ABS = 0.9            # Absorption efficiency
+ETA_ABS = 0.9*0.97       # Absorption efficiency, incl. 2*FWHM
 NBI_EFFICIENCY = ETA_ABS
 
 # Grid lifetime and capacity factor parameters
@@ -117,7 +117,7 @@ V_levels = np.array([])
 #                     (0.6, 1.94), 
 #                     (0.70, 1.79),
 # ]
-test_points_list = [(0.5, 2.5), (0.49, 2.6), (0.48, 2.75), (0.46, 3.0)]
+test_points_list = [(0.56, 2.5), (0.55, 2.6), (0.54, 2.75), (0.53, 3.0)]
 
 figures_dir = Path(__file__).parent / 'figures'
 figures_dir.mkdir(exist_ok=True)

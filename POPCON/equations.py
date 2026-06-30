@@ -272,7 +272,7 @@ def get_hydrogen_rate_coeffs(ne_edge_m3, te_edge_eV):
 
 def calculate_a0_cold_neutral_mfp(n_20, N_mfp = 30, E_neutral_ev = 50, amu_neutral=2.5, te_edge_eV = 100):
     """
-    a0 >= 33*lambda, where lambda is the cold neutral mean free path
+    a0 >= 30*lambda, where lambda is the cold neutral mean free path
     for 50 eV edge neutrals (Sam Frank recommendation on cold neutral energy).
     Assumes that the edge Te is 100 eV (by definition so that plasma is barely ionized)
     and that the edge density is half the line average density at B=B0.
@@ -564,6 +564,7 @@ def calculate_max_n20_ecrh(f_ecrh_ghz=200):
     density at sloshing ion turning points to be sqrt(2) factor
     larger than the central density
     """
+    # TODO: Update to X-wave
     n_crit = (2*np.pi*f_ecrh_ghz*1e9/const.e)**2 * const.m_e * const.epsilon_0
     #n_crit = 81 * (f_ecrh_ghz*1e9)**2
     return n_crit / np.sqrt(2) / 1e20
