@@ -357,7 +357,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         h, _ = CS_Pfus.legend_elements()
         add_label_outline(ax.clabel(CS_Pfus, inline=True, fontsize=12, fmt='%.0f'))
         legend_handles.append(h[0])
-        legend_labels.append('P_fus [MW]')
+        legend_labels.append(r'$P_{f}$ [MW]')
 
     # ⟨P_fus⟩ contours (capacity factor adjusted fusion power)
     if len(P_fus_avg_levels) > 0:
@@ -512,9 +512,9 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
     
     # Text for hard limits
-    #ax.text(1.0, 2.75, 'Beta Limit', fontsize=18, c='purple', rotation=-42, zorder=10)
-    #ax.text(0.4, 2.82, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
-    ax.text(0.22, 2.65, 'Too small for NBI', fontsize=18, c='k', rotation=80, zorder=10)
+    ax.text(1.0, 2.93, 'Beta Limit', fontsize=18, c='purple', rotation=-40, zorder=10)
+    ax.text(0.55, 3.7, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
+    # ax.text(0.22, 2.65, 'Too small for NBI', fontsize=18, c='k', rotation=80, zorder=10)
 
     # Test point:
     for Eb, n20 in test_points_list:
@@ -525,8 +525,8 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         legend_labels.append('Design Point')
 
     # Formatting
-    ax.set_xlabel(r'$E_{NBI}$ [100 keV]', fontsize=16)
-    ax.set_ylabel(r'$\langle n_{20} \rangle$ [$10^{20}$ m$^{-3}$]', fontsize=16)
+    ax.set_xlabel(r'$E_{b}$ [100 keV]', fontsize=18)
+    ax.set_ylabel(r'$n_{20}$ [$10^{20}$ m$^{-3}$]', fontsize=18)
     ax.set_xlim([E_b_min, E_b_max])
     ax.set_ylim([n_20_min, 4])
 
@@ -544,7 +544,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # CHANGED: Colorbar for P_fus (max 10 MW)-- Change back to Rev/Vol
     # ===========================================================================
     cbar = plt.colorbar(im, ax=ax, pad=0.02)
-    cbar.set_label('Yearly Revenue Per Volume [$M/yr/$m^3$]', fontsize=16)
+    cbar.set_label(r'$R/V_p$ [\$M/yr/$m^3$]', fontsize=18)
     cbar_ticks = np.linspace(0, max_rev_per_vol/1e6, 6)
     cbar.set_ticks(cbar_ticks)
     cbar.set_ticklabels([f'{x:.0f}' for x in cbar_ticks])
@@ -553,10 +553,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     # Grid
     ax.grid(True, alpha=0.2, linestyle=':', linewidth=0.5)
 
-    ax.set_title(f'($B_{{max}}$={B_max}T, $B_{{central}}$={B_central:.1f}T, '
-                 f'$R_{{M,vac}}$={R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
-                 f'Frustum Geometry | Git Hash: {get_git_hash()}',
-                 fontsize=12, weight='bold')
+    # ax.set_title(f'($B_{{max}}$={B_max}T, $B_{{central}}$={B_central:.1f}T, '
+    #              f'$R_{{M,vac}}$={R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
+    #              f'Frustum Geometry | Git Hash: {get_git_hash()}',
+    #              fontsize=12, weight='bold')
+    ax.set_title(rf'$B_m = {B_max:.0f}$ T, $B_0 = {B_central:.2f}$ T', fontsize=18)
 
     plt.tight_layout()
 

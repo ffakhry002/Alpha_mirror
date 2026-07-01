@@ -323,9 +323,9 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     """
     # Total length from FLR stability: L = a² / rho_i
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
-    # From Derek, L in the FLR stability is the length between the ion turning points.
+    # From Derek, L in the FLR stability is the length between the axial mid-point ion turning point.
     # From Erick's B(z) and 45deg injection, the length between the turning points
-    # is roughly half of the length between the mirror throats. Thus add factor of 2.
+    # is roughly half of the length between the mirror throats. Thus add factor of 4.
     L_plasma = 2*a_0_min**2 / rho_i
 
     # Each segment is L/3

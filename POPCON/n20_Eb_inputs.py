@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Magnetic field parameters
 B_max_default = 25.0         # Maximum mirror field [T]
-B_central_default = 5.75    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+B_central_default = 6.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
 beta_c_default = 0.5         # MHD stability limit
 
 # Temperature scaling coefficients (from Egedal et al.)
@@ -34,8 +34,8 @@ n_20_min = 1   # Minimum density [1e20 m^-3]
 # Practical engineering limit
 min_a0 = 0.1                # Minimum minor radius [m]
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
-max_nbi_power_ftop = 15     # Maximum flattop Pnbi [MW] for two beam duct system
-max_nbi_current = 272    #  JET deuterium current [A]
+max_nbi_power_ftop = 1500.     # Maximum flattop Pnbi [MW] for two beam duct system
+max_nbi_current = 10000    #  JET deuterium current [A]
 
 # Grid resolution
 n_grid_points = 500      # Number of grid points (higher = smoother but slower)
@@ -45,10 +45,10 @@ Q_levels = np.array([
 ])
 
 # Neutron wall loading (NWL) levels and requirement
-min_NWL = 0.7 # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
+min_NWL = 0.1 # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
 max_NWL = 3.5
 NWL_background = np.linspace(min_NWL, max_NWL, 25)  # Fine resolution for smooth background
-NWL_levels = np.array(np.linspace(min_NWL, 3.0, 20))  # Clean contour lines
+NWL_levels = np.array(np.arange(min_NWL, 3.0, 0.2))  # Clean contour lines
 #NWL_levels = np.array([])
 
 # Fusion power background for POPCON
@@ -119,7 +119,7 @@ V_levels = np.array([])
 #                     (0.6, 1.94), 
 #                     (0.70, 1.79),
 # ]
-test_points_list = [(0.56, 2.5), (0.55, 2.6), (0.54, 2.75), (0.53, 3.0)]
+test_points_list = [(0.5747, 2.71434)]
 
 figures_dir = Path(__file__).parent / 'figures'
 figures_dir.mkdir(exist_ok=True)

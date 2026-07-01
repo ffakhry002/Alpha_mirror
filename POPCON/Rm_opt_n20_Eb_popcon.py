@@ -107,7 +107,7 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
     R_M_vac = B_max / B_central
     if R_M_vac < 4:
         print(f"R_M_vac < 4: R_M_Vac = {R_M_vac:.2f}. Returning NaNs")
-        return np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Create grid using input E_b range
     E_b100 = np.linspace(E_b_min, E_b_max, n_grid_points)
@@ -131,8 +131,13 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
     a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid)  # DCLC stabilization (25*rho_i)
     a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
     a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
-    a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), np.maximum(a_0_cold_neutrals, a_0_adiabatic))
-    a_0_min = np.maximum(a_0_min, min_a0) # Practical engineering limit
+    a_0_eng = min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint
+    # Stack all arrays along a new axis and find limiting constraint on a_0
+    a_0_arrays = np.stack([a_0_abs, a_0_DCLC, a_0_cold_neutrals, a_0_adiabatic, a_0_eng], axis=0)
+    a_0_limits = ['abs', 'DCLC', 'N MFP', 'adiab', 'eng']
+    a_0_min = np.max(a_0_arrays, axis=0)
+    a_0_min_which = np.argmax(a_0_arrays, axis=0)
+    a_0_min_limit = np.array(a_0_limits)[a_0_min_which]
 
     # Calculate a0 at mirror throat from flux conservation
     a_0_end = calculate_a0_end(a_0_min, B_0_grid, B_max)
@@ -235,11 +240,15 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
     
     # Find max Rev per volume over the valid region by making invalid points -inf
     Rev_per_Vol_valid = np.where(~mask_invalid, Rev_per_Vol, -np.inf)
-    max_rev = np.nanmax(Rev_per_Vol)
-    i, j = np.unravel_index(np.argmax(Rev_per_Vol_valid), Rev_per_Vol.shape)
+    max_rev = np.nanmax(Rev_per_Vol_valid)
+    i, j = np.unravel_index(np.argmax(Rev_per_Vol_valid), Rev_per_Vol_valid.shape)
     n_20_opt = n_20_grid[i, j]
     E_b100_opt = E_b100_grid[i, j]
-    return max_rev, n_20_opt, E_b100_opt
+    # Get NWL, a_0, and limiting a_0 constraint
+    nwl_opt = NWL_beam_target[i, j]
+    a_0_opt = a_0_min[i, j]
+    a_0_limit_opt = a_0_min_limit[i,j]
+    return max_rev, n_20_opt, E_b100_opt, nwl_opt, a_0_opt, a_0_limit_opt
 
 def popcon_scan(B_0_scan, B_max, bypass=False):
     fn = f'Rm_optimizaiton_Bm_{B_max:.0f}.csv'
@@ -252,16 +261,25 @@ def popcon_scan(B_0_scan, B_max, bypass=False):
     max_rev_scan = np.zeros_like(B_0_scan)
     n_20_opt_scan = np.zeros_like(B_0_scan)
     E_b100_opt_scan = np.zeros_like(B_0_scan)
+    nwl_opt_scan = np.zeros_like(B_0_scan)
+    a_0_opt_scan = np.zeros_like(B_0_scan)
+    a_0_limit_opt_scan = []
     for i, b0 in enumerate(B_0_scan):
-        max_rev, n_20_opt, E_b100_opt = create_popcon(b0, B_max=B_max)
+        max_rev, n_20_opt, E_b100_opt, nwl_opt, a_0_opt, a_0_limit_opt = create_popcon(b0, B_max=B_max)
         max_rev_scan[i] = max_rev
         n_20_opt_scan[i] = n_20_opt
         E_b100_opt_scan[i] = E_b100_opt
+        nwl_opt_scan[i] = nwl_opt
+        a_0_opt_scan[i] = a_0_opt
+        a_0_limit_opt_scan.append(a_0_limit_opt)
     df = pd.DataFrame({
         'B_0': B_0_scan,
         'Rev_per_vol_opt': max_rev_scan,
         'n_20_opt': n_20_opt_scan,
-        'E_b100_opt': E_b100_opt_scan 
+        'E_b100_opt': E_b100_opt_scan,
+        'NWL_at_opt_Rev_per_vol': nwl_opt_scan,
+        'a_0_opt': a_0_opt_scan,
+        'a_0_limit_opt': np.array(a_0_limit_opt_scan, dtype=str),
     })
     df.to_csv(fn, index=False)
     return df
@@ -270,9 +288,9 @@ def popcon_scan(B_0_scan, B_max, bypass=False):
 if __name__=="__main__":
     plt.rcParams['font.size'] = 11
     B_0_scan = np.arange(2.5, 7.25, 0.25)
-    df_22 = popcon_scan(B_0_scan, B_max=22)
-    df_25 = popcon_scan(B_0_scan, B_max=25)
-    df_28 = popcon_scan(B_0_scan, B_max=28)
+    df_22 = popcon_scan(B_0_scan, B_max=22, bypass=False)
+    df_25 = popcon_scan(B_0_scan, B_max=25, bypass=False)
+    df_28 = popcon_scan(B_0_scan, B_max=28, bypass=False)
     dfs = [df_22, df_25, df_28]
     labels = ['$B_m = 22$ T', '$B_m = 25$ T', '$B_m = 28$ T']
     cmap = plt.get_cmap('Reds')
