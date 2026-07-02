@@ -54,6 +54,7 @@ from n20_Eb_inputs import (
     beta_c_default,
     T_i_coeff,
     T_e_coeff,
+    N_rho,
     E_b_min,
     E_b_max,
     n_20_min,
@@ -128,7 +129,7 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
 
     # Calculate geometry constraints
     a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
-    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid)  # DCLC stabilization (25*rho_i)
+    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization (25*rho_i)
     a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
     a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
     a_0_eng = min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint
@@ -288,9 +289,9 @@ def popcon_scan(B_0_scan, B_max, bypass=False):
 if __name__=="__main__":
     plt.rcParams['font.size'] = 11
     B_0_scan = np.arange(2.5, 7.25, 0.25)
-    df_22 = popcon_scan(B_0_scan, B_max=22, bypass=False)
-    df_25 = popcon_scan(B_0_scan, B_max=25, bypass=False)
-    df_28 = popcon_scan(B_0_scan, B_max=28, bypass=False)
+    df_22 = popcon_scan(B_0_scan, B_max=22, bypass=True)
+    df_25 = popcon_scan(B_0_scan, B_max=25, bypass=True)
+    df_28 = popcon_scan(B_0_scan, B_max=28, bypass=True)
     dfs = [df_22, df_25, df_28]
     labels = ['$B_m = 22$ T', '$B_m = 25$ T', '$B_m = 28$ T']
     cmap = plt.get_cmap('Reds')

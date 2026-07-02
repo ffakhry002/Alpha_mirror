@@ -49,6 +49,7 @@ from n20_Eb_inputs import (
     beta_c_default,
     T_i_coeff,
     T_e_coeff,
+    N_rho,
     E_b_min,
     E_b_max,
     n_20_min,
@@ -130,7 +131,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate geometry constraints
     a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
-    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid)  # DCLC stabilization (25*rho_i)
+    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization
     a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
     a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
     a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), np.maximum(a_0_cold_neutrals, a_0_adiabatic))
@@ -595,7 +596,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         R_M_dmag = B_max / B_0
 
         a_0_abs = calculate_a0_absorption(E_b_100, n_20_target)
-        a_0_DCLC = calculate_a0_DCLC(E_b_100, B_0)
+        a_0_DCLC = calculate_a0_DCLC(E_b_100, B_0, N_rho=N_rho)
         # BUG FIX: Use beta_local instead of undefined beta
         a_0_adiabatic = calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
         a_0_nmfp = calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]

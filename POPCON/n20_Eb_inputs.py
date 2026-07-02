@@ -12,6 +12,9 @@ beta_c_default = 0.5         # MHD stability limit
 T_i_coeff = 2/3          # Ti = (2/3)E_b [keV]
 T_e_coeff = 0.1          # Te = 0.1E_b [keV]
 
+# N_rho (a_0/rho_i, where rho_i is ion Larmor radius). Should be 10 - 50
+N_rho = 15
+
 # NBI efficiency
 ETA_ABS = 0.9*0.97       # Absorption efficiency, incl. 2*FWHM
 NBI_EFFICIENCY = ETA_ABS
@@ -33,8 +36,9 @@ n_20_min = 1   # Minimum density [1e20 m^-3]
 
 # Practical engineering limit
 min_a0 = 0.1                # Minimum minor radius [m]
+min_L = 3.                  # Minimum length so everythin fits
 qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
-max_nbi_power_ftop = 1500.     # Maximum flattop Pnbi [MW] for two beam duct system
+max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
 max_nbi_current = 10000    #  JET deuterium current [A]
 
 # Grid resolution
@@ -72,7 +76,7 @@ P_fus_levels = np.array(np.arange(0, 7, 1))
 P_fus_avg_levels = np.array([])
 
 # NBI power contour levels [MW]
-P_NBI_levels = np.array(np.arange(15, 35, 5))
+P_NBI_levels = np.array(np.arange(10, 35, 5))
 #P_NBI_levels = np.array([])
 
 # On-axis field contour levels [T]

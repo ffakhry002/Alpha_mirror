@@ -8,6 +8,8 @@ from scipy.interpolate import interp1d, RegularGridInterpolator
 import scipy.constants as const
 import pandas as pd
 
+from n20_Eb_inputs import min_L
+
 # ============================================================================
 # PHYSICS CONSTANTS
 # ============================================================================
@@ -214,17 +216,20 @@ def calculate_ion_larmor_radius(E_b_100keV, B_0):
     return rho_i
 
 
-def calculate_a0_DCLC(E_b_100keV, B_0):
+def calculate_a0_DCLC(E_b_100keV, B_0, N_rho=15):
     """
-    a₀,DCLC = 25ρᵢ
+    a₀,DCLC = N_rho * ρᵢ
 
     Minimum radius for DCLC (Drift-Cyclotron Loss Cone) stabilization.
-    Conservative limit ensures kinetic stability even with sloshing ions.
+    Generally 10 < N_rho < 50 for stability. Forest set N_rho = 25: 
+    conservative limit ensuring kinetic stability even without sloshing ions.
+    Our mirror has sloshing ions, so we should use N_rho closer to 10
+    N_rho is a crucial lever determining device size
     """
     rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
     # This is a bit more aggressive than Forest, but is within a reasonable
     # range considering we're using sloshing ions (rho_i = 15)
-    return 15 * rho_i
+    return N_rho * rho_i
 
 def calculate_a0_adiabaticity(E_b_100keV, B_0, beta):
     """
@@ -327,6 +332,7 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     # From Erick's B(z) and 45deg injection, the length between the turning points
     # is roughly half of the length between the mirror throats. Thus add factor of 4.
     L_plasma = 2*a_0_min**2 / rho_i
+    L_plasma = np.maximum(L_plasma, min_L)
 
     # Each segment is L/3
     L_segment = L_plasma / 3
