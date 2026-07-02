@@ -9,39 +9,7 @@ import matplotlib.patheffects as pe
 from pathlib import Path
 
 # Import from our modular files
-from equations import (
-    calculate_loss_coefficient,
-    calculate_beta_local,
-    calculate_B0_with_diamagnetic,
-    calculate_beta_limit,
-    calculate_a0_absorption,
-    calculate_a0_DCLC,
-    calculate_a0_adiabaticity,
-    calculate_a0_cold_neutral_mfp,
-    calculate_a0_end,
-    calculate_plasma_geometry_frustum,
-    calculate_collisionality,
-    calculate_voltage_closed_lines,
-    calculate_voltage_field_reversal,
-    calculate_max_mirror_ratio_vortex,
-    calculate_fusion_power,
-    calculate_NBI_power,
-    calculate_NBI_current,
-    calculate_NWL,
-    calculate_Q,
-    calculate_max_n20_ecrh,
-    calculate_Bw,
-    calculate_a_w,
-    calculate_heat_flux,
-    calculate_ion_flux_on_target,
-    calculate_target_erosion_rate,
-    calculate_end_ring_thickness,
-    calculate_grid_lifetime,
-    calculate_capacity_factor_annual,
-    calculate_average_fusion_power,
-    calculate_isotope_revenue,
-    calculate_revenue_per_volume,
-)
+import POPCON.utils.equations as eqn
 
 from n20_Eb_inputs import (
     B_max_default,
@@ -114,31 +82,31 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Create grid using input E_b range
     E_b100 = np.linspace(E_b_min, E_b_max, n_grid_points)
-    n_20_max = calculate_beta_limit(E_b_min, B_central, beta_c)
+    n_20_max = eqn.calculate_beta_limit(E_b_min, B_central, beta_c)
     n_20 = np.linspace(n_20_min, n_20_max, n_grid_points)
 
     E_b100_grid, n_20_grid = np.meshgrid(E_b100, n_20)
 
     # Calculate constraints with NEW beta formulation
-    n_20_beta_limit = calculate_beta_limit(E_b100_grid, B_central, beta_c)
+    n_20_beta_limit = eqn.calculate_beta_limit(E_b100_grid, B_central, beta_c)
 
     # Calculate local beta and on-axis field (diamagnetically adjusted)
-    beta_local = calculate_beta_local(n_20_grid, E_b100_grid, B_central)
-    B_0_grid = calculate_B0_with_diamagnetic(B_central, beta_local)
+    beta_local = eqn.calculate_beta_local(n_20_grid, E_b100_grid, B_central)
+    B_0_grid = eqn.calculate_B0_with_diamagnetic(B_central, beta_local)
 
     # Calculate diamagnetic mirror ratio
     R_M_dmag = B_max / B_0_grid
 
     # Calculate geometry constraints
-    a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
-    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization
-    a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
-    a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
+    a_0_abs = eqn.calculate_a0_absorption(E_b100_grid, n_20_grid)
+    a_0_DCLC = eqn.calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization
+    a_0_adiabatic = eqn.calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
+    a_0_cold_neutrals = eqn.calculate_a0_cold_neutral_mfp(n_20_grid)
     a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), np.maximum(a_0_cold_neutrals, a_0_adiabatic))
     a_0_min = np.maximum(a_0_min, min_a0) # Practical engineering limit
 
     # Calculate a0 at mirror throat from flux conservation
-    a_0_end = calculate_a0_end(a_0_min, B_0_grid, B_max)
+    a_0_end = eqn.calculate_a0_end(a_0_min, B_0_grid, B_max)
 
     # Calculate plasma geometry using FRUSTUM model
     L_plasma = np.zeros_like(a_0_min)
@@ -148,7 +116,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     for i in range(n_grid_points):
         for j in range(n_grid_points):
-            L, Vp, Vf, A = calculate_plasma_geometry_frustum(
+            L, Vp, Vf, A = eqn.calculate_plasma_geometry_frustum(
                 a_0_min[i, j], a_0_end[i, j], E_b100_grid[i, j], B_0_grid[i, j]
             )
             L_plasma[i, j] = L
@@ -157,11 +125,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
             vessel_surface_area[i, j] = A
 
     # Calculate loss coefficient - use vacuum mirror ratio
-    C_loss = calculate_loss_coefficient(E_b100_grid, R_M_vac)
+    C_loss = eqn.calculate_loss_coefficient(E_b100_grid, R_M_vac)
 
     # Calculate required NBI power
-    P_NBI_required = calculate_NBI_power(n_20_grid, V_plasma, E_b100_grid, R_M_vac, C_loss)
-    I_NBI_required = calculate_NBI_current(P_NBI_required, E_b100_grid)
+    P_NBI_required = eqn.calculate_NBI_power(n_20_grid, V_plasma, E_b100_grid, R_M_vac, C_loss)
+    I_NBI_required = eqn.calculate_NBI_current(P_NBI_required, E_b100_grid)
 
     # Calculate beam-target fusion for full grid
     print(f"Calculating beam-target physics for {n_grid_points}×{n_grid_points} grid points...")
@@ -182,11 +150,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                 Vf = V_fus[i, j]
 
                 # Calculate fusion power
-                P_fusion = calculate_fusion_power(E_b_100_point, n_20_point, Vf, T_i)
+                P_fusion = eqn.calculate_fusion_power(E_b_100_point, n_20_point, Vf, T_i)
 
                 # Calculate Q
                 if P_NBI_required[i, j] > 0:
-                    Q = calculate_Q(P_fusion, P_NBI_required[i, j])
+                    Q = eqn.calculate_Q(P_fusion, P_NBI_required[i, j])
                 else:
                     Q = 0
 
@@ -198,11 +166,11 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
                 Q_beam_target[i, j] = 0
 
     # Calculate NWL
-    NWL_beam_target = calculate_NWL(P_fusion_beam_target, vessel_surface_area)
+    NWL_beam_target = eqn.calculate_NWL(P_fusion_beam_target, vessel_surface_area)
 
     # Calculate capacity factor and time-averaged fusion power
     print(f"Calculating capacity factor for grid lifetime...")
-    t_grid = calculate_grid_lifetime(
+    t_grid = eqn.calculate_grid_lifetime(
         E_b100_grid * 100,  # Convert to keV (not 100 keV units!)
         P_NBI_required,
         d_mm=d_grid,
@@ -210,15 +178,15 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
         sigma_y_cm=sigma_y_beam,
         num_grids=num_grids
     )
-    CF_annual = calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
-    P_fus_avg = calculate_average_fusion_power(P_fusion_beam_target, t_grid,
+    CF_annual = eqn.calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
+    P_fus_avg = eqn.calculate_average_fusion_power(P_fusion_beam_target, t_grid,
                                                 t_replace_months=t_replace, eta_duty=eta_duty)
 
     # Calculate capacity factor adjusted fusion power density [MW/m³]
     P_fus_avg_density = P_fus_avg / V_fus
 
     # Calculate Revenue/Volume using capacity factor adjusted fusion power
-    Revenue = calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
+    Revenue = eqn.calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
     Rev_per_Vol = Revenue / V_plasma  # [$/yr/m³]
 
     print(f"Capacity factor range: {np.nanmin(CF_annual):.3f} - {np.nanmax(CF_annual):.3f}")
@@ -227,31 +195,31 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     print(f"Revenue/Volume range: {np.nanmin(Rev_per_Vol)/1e6:.2f} - {np.nanmax(Rev_per_Vol)/1e6:.2f} $M/yr/m³")
 
     # Calculate collisionality for sanity check
-    collisionality = calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
+    collisionality = eqn.calculate_collisionality(E_b_100keV=E_b100_grid, n_20=n_20_grid, L_plasma=L_plasma)
     print(f"Max collisionality: {np.nanmax(collisionality)}")
     print(f"Min collisionality: {np.nanmin(collisionality)}")
 
     # Calculate end-plate voltage bias for vortex stabilization
-    voltage_cl = calculate_voltage_closed_lines(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    voltage_cl = eqn.calculate_voltage_closed_lines(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
     print(f"Max Voltage for flow closure: {np.nanmax(voltage_cl)}")
     print(f"Min Voltage for flow closure: {np.nanmin(voltage_cl)}")
-    voltage_fr = calculate_voltage_field_reversal(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
+    voltage_fr = eqn.calculate_voltage_field_reversal(E_b100_grid, B_0_grid, a_0_min, L_plasma, R_M_dmag)
     print(f"Max Voltage for field reversal: {np.nanmax(voltage_fr)}")
     print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
     end_plate_voltage = np.maximum(voltage_cl, voltage_fr)
 
     # Calculate mirror ratio limit for vortex stabilization
-    max_R_M_vortex = calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
+    max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(E_b100_grid, B_0_grid, a_0_min, L_plasma)
     print(f"Max Rm for vortex stabilization: {np.nanmin(max_R_M_vortex)}")
 
     # Calculate end plug magnetic field and heat flux
-    Bw = calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
+    Bw = eqn.calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
 
     # BUG FIX: Use Q_beam_target instead of undefined Q
-    q_w = calculate_heat_flux(P_NBI_required, Q_beam_target, a_0_min, B_0_grid, Bw)
+    q_w = eqn.calculate_heat_flux(P_NBI_required, Q_beam_target, a_0_min, B_0_grid, Bw)
 
     # Calculate end plug radius
-    a_w = calculate_a_w(a_0_min, B_0_grid, Bw)
+    a_w = eqn.calculate_a_w(a_0_min, B_0_grid, Bw)
 
     # Create masks for different regions
     mask_beta = n_20_grid > n_20_beta_limit
@@ -260,13 +228,13 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
     #mask_nbi_current_limit = I_NBI_required > max_nbi_current
 
     # NEW: Mask for invalid Bw region
-    # Valid when Bw < B_max/74 (calculated end-wall field must be achievable)
+    # Valid when Bw < B_max/74 (eqn.calculated end-wall field must be achievable)
     # Invalid when Bw > B_max/74 (required end-wall field too high)
     Bw_max_limit = B_max / 74.0  # Maximum allowable Bw
     mask_Bw_invalid = Bw > Bw_max_limit  # Invalid where Bw exceeds limit
 
     # Mask for where density is too high for ECRH to heat center
-    n_cutoff = calculate_max_n20_ecrh(B_central)
+    n_cutoff = eqn.calculate_max_n20_ecrh(B_central)
     print(f"Cutoff density: {n_cutoff}")
     mask_ecrh_cutoff = n_20_grid > n_cutoff
 
@@ -591,41 +559,41 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         E_NBI_keV = E_b_100 * 100
 
         # Calculate all parameters
-        beta_local = calculate_beta_local(n_20_target, E_b_100, B_central)
-        B_0 = calculate_B0_with_diamagnetic(B_central, beta_local)
+        beta_local = eqn.calculate_beta_local(n_20_target, E_b_100, B_central)
+        B_0 = eqn.calculate_B0_with_diamagnetic(B_central, beta_local)
         R_M_dmag = B_max / B_0
 
-        a_0_abs = calculate_a0_absorption(E_b_100, n_20_target)
-        a_0_DCLC = calculate_a0_DCLC(E_b_100, B_0, N_rho=N_rho)
+        a_0_abs = eqn.calculate_a0_absorption(E_b_100, n_20_target)
+        a_0_DCLC = eqn.calculate_a0_DCLC(E_b_100, B_0, N_rho=N_rho)
         # BUG FIX: Use beta_local instead of undefined beta
-        a_0_adiabatic = calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
-        a_0_nmfp = calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]
+        a_0_adiabatic = eqn.calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
+        a_0_nmfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]
         a_0_min = max(a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp, min_a0)
         idx_a_0_min = np.argmax([a_0_abs, a_0_DCLC, a_0_adiabatic, a_0_nmfp, min_a0])
         constraint_labels = ["Abs", "DCLC", "Adiab", "N MFP", "Eng"]
         limiting_constraint = constraint_labels[idx_a_0_min]
 
-        a_0_end = calculate_a0_end(a_0_min, B_0, B_max)
+        a_0_end = eqn.calculate_a0_end(a_0_min, B_0, B_max)
 
-        L_plasma, V_plasma, V_fus, vessel_surface_area = calculate_plasma_geometry_frustum(
+        L_plasma, V_plasma, V_fus, vessel_surface_area = eqn.calculate_plasma_geometry_frustum(
             a_0_min, a_0_end, E_b_100, B_0
         )
 
-        C_loss = calculate_loss_coefficient(E_b_100, R_M_vac)
+        C_loss = eqn.calculate_loss_coefficient(E_b_100, R_M_vac)
 
         T_i = T_i_coeff * E_NBI_keV
-        P_fusion = calculate_fusion_power(E_b_100, n_20_target, V_fus, T_i)
-        P_NBI = calculate_NBI_power(n_20_target, V_plasma, E_b_100, R_M_vac, C_loss)
-        NWL = calculate_NWL(P_fusion, vessel_surface_area)
-        Q = calculate_Q(P_fusion, P_NBI)
-        Bw = calculate_Bw(E_b_100keV=E_b_100, B0=B_0, a_0_min=a_0_min)
-        q_w = calculate_heat_flux(P_nbi=P_NBI, Q=Q, a_0_min=a_0_min, B0=B_0, Bw=Bw)
-        a_w = calculate_a_w(a_0_min=a_0_min, B0=B_0, Bw=Bw)
-        ion_flux_target = calculate_ion_flux_on_target(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
-        ero_rate_w = calculate_target_erosion_rate(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
-        end_ring_thickness = calculate_end_ring_thickness(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
+        P_fusion = eqn.calculate_fusion_power(E_b_100, n_20_target, V_fus, T_i)
+        P_NBI = eqn.calculate_NBI_power(n_20_target, V_plasma, E_b_100, R_M_vac, C_loss)
+        NWL = eqn.calculate_NWL(P_fusion, vessel_surface_area)
+        Q = eqn.calculate_Q(P_fusion, P_NBI)
+        Bw = eqn.calculate_Bw(E_b_100keV=E_b_100, B0=B_0, a_0_min=a_0_min)
+        q_w = eqn.calculate_heat_flux(P_nbi=P_NBI, Q=Q, a_0_min=a_0_min, B0=B_0, Bw=Bw)
+        a_w = eqn.calculate_a_w(a_0_min=a_0_min, B0=B_0, Bw=Bw)
+        ion_flux_target = eqn.calculate_ion_flux_on_target(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
+        ero_rate_w = eqn.calculate_target_erosion_rate(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
+        end_ring_thickness = eqn.calculate_end_ring_thickness(P_nbi=P_NBI, E_b_100keV=E_b_100, a_w=a_w)
 
-        t_grid = calculate_grid_lifetime(
+        t_grid = eqn.calculate_grid_lifetime(
             E_NBI_keV,  # Convert to keV (not 100 keV units!)
             P_NBI, 
             d_mm=d_grid,
@@ -633,11 +601,11 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
             sigma_y_cm=sigma_y_beam,
             num_grids=num_grids
         )
-        CF_annual = calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
-        P_fus_avg = calculate_average_fusion_power(P_fusion, t_grid,
+        CF_annual = eqn.calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
+        P_fus_avg = eqn.calculate_average_fusion_power(P_fusion, t_grid,
                                                     t_replace_months=t_replace, eta_duty=eta_duty)
 
-        rev_per_vol = calculate_isotope_revenue(P_fus_avg) / V_plasma
+        rev_per_vol = eqn.calculate_isotope_revenue(P_fus_avg) / V_plasma
 
         # BUG FIX: Use a_0_DCLC instead of undefined a_0_FLR
         print(f"{E_NBI_keV:6.0f} {n_20_target:6.2f} {rev_per_vol/1e6:9.0f} {CF_annual:6.3f} {beta_local:8.5f} {B_0:6.3f} {R_M_dmag:7.2f} "
@@ -654,8 +622,8 @@ if __name__ == "__main__":
     print(f"Vacuum mirror ratio R_M_vac = {B_max_default/B_central_default:.2f}")
 
     print(f"Testing voltage calculation: BEAM voltage should be between 2 to 3")
-    voltage_beam = calculate_voltage_closed_lines(1, 2.5, 0.3, 10, 12)
-    voltage_beam = max(voltage_beam, calculate_voltage_field_reversal(1, 2.5, 0.3, 10, 12))
+    voltage_beam = eqn.calculate_voltage_closed_lines(1, 2.5, 0.3, 10, 12)
+    voltage_beam = max(voltage_beam, eqn.calculate_voltage_field_reversal(1, 2.5, 0.3, 10, 12))
     print(f"BEAM voltage required: {voltage_beam}")
 
     # Test multiple design points

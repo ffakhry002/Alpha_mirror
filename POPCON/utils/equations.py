@@ -9,6 +9,7 @@ import scipy.constants as const
 import pandas as pd
 
 from n20_Eb_inputs import min_L
+from utils.git_tools import get_repo_root
 
 # ============================================================================
 # PHYSICS CONSTANTS
@@ -32,7 +33,7 @@ _H_RATE_CACHE = None
 
 def load_dt_reactivity_data():
     """Load D-T fusion reactivity ⟨σv⟩(T) from FusionReactivities.dat"""
-    data_file = Path(__file__).parent / 'FusionReactivities.dat'
+    data_file = get_repo_root() / 'data' / 'FusionReactivities.dat'
 
     temperatures = []  # keV
     dt_reactivities = []  # m³/s
@@ -84,8 +85,8 @@ def build_hydrogen_rate_interpolators():
     global _H_RATE_CACHE
     if _H_RATE_CACHE is not None:
         return _H_RATE_CACHE
-
-    df = pd.read_csv('POPCON/edge_neutrals/hydrogen_rate_coeffs.csv')
+    fn = get_repo_root() / 'data' / 'hydrogen_rate_coeffs.csv'
+    df = pd.read_csv(fn)
     log10Te = np.sort(df['log10Te_eV'].unique())
     log10ne = np.sort(df['log10ne_m3'].unique())
 
