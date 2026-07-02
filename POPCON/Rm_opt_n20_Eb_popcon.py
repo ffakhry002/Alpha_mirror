@@ -14,39 +14,7 @@ import pandas as pd
 from pathlib import Path
 
 # Import from our modular files
-from equations import (
-    calculate_loss_coefficient,
-    calculate_beta_local,
-    calculate_B0_with_diamagnetic,
-    calculate_beta_limit,
-    calculate_a0_absorption,
-    calculate_a0_DCLC,
-    calculate_a0_adiabaticity,
-    calculate_a0_cold_neutral_mfp,
-    calculate_a0_end,
-    calculate_plasma_geometry_frustum,
-    calculate_collisionality,
-    calculate_voltage_closed_lines,
-    calculate_voltage_field_reversal,
-    calculate_max_mirror_ratio_vortex,
-    calculate_fusion_power,
-    calculate_NBI_power,
-    calculate_NBI_current,
-    calculate_NWL,
-    calculate_Q,
-    calculate_max_n20_ecrh,
-    calculate_Bw,
-    calculate_a_w,
-    calculate_heat_flux,
-    calculate_ion_flux_on_target,
-    calculate_target_erosion_rate,
-    calculate_end_ring_thickness,
-    calculate_grid_lifetime,
-    calculate_capacity_factor_annual,
-    calculate_average_fusion_power,
-    calculate_isotope_revenue,
-    calculate_revenue_per_volume,
-)
+import POPCON.utils.equations as eqn
 
 from n20_Eb_inputs import (
     B_max_default,
@@ -112,26 +80,26 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
 
     # Create grid using input E_b range
     E_b100 = np.linspace(E_b_min, E_b_max, n_grid_points)
-    n_20_max = calculate_beta_limit(E_b_min, B_central, beta_c)
+    n_20_max = eqn.calculate_beta_limit(E_b_min, B_central, beta_c)
     n_20 = np.linspace(n_20_min, n_20_max, n_grid_points)
 
     E_b100_grid, n_20_grid = np.meshgrid(E_b100, n_20)
 
     # Calculate constraints with NEW beta formulation
-    n_20_beta_limit = calculate_beta_limit(E_b100_grid, B_central, beta_c)
+    n_20_beta_limit = eqn.calculate_beta_limit(E_b100_grid, B_central, beta_c)
 
     # Calculate local beta and on-axis field (diamagnetically adjusted)
-    beta_local = calculate_beta_local(n_20_grid, E_b100_grid, B_central)
-    B_0_grid = calculate_B0_with_diamagnetic(B_central, beta_local)
+    beta_local = eqn.calculate_beta_local(n_20_grid, E_b100_grid, B_central)
+    B_0_grid = eqn.calculate_B0_with_diamagnetic(B_central, beta_local)
 
     # Calculate diamagnetic mirror ratio
     R_M_dmag = B_max / B_0_grid
 
     # Calculate geometry constraints
-    a_0_abs = calculate_a0_absorption(E_b100_grid, n_20_grid)
-    a_0_DCLC = calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization (25*rho_i)
-    a_0_adiabatic = calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
-    a_0_cold_neutrals = calculate_a0_cold_neutral_mfp(n_20_grid)
+    a_0_abs = eqn.calculate_a0_absorption(E_b100_grid, n_20_grid)
+    a_0_DCLC = eqn.calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization (25*rho_i)
+    a_0_adiabatic = eqn.calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
+    a_0_cold_neutrals = eqn.calculate_a0_cold_neutral_mfp(n_20_grid)
     a_0_eng = min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint
     # Stack all arrays along a new axis and find limiting constraint on a_0
     a_0_arrays = np.stack([a_0_abs, a_0_DCLC, a_0_cold_neutrals, a_0_adiabatic, a_0_eng], axis=0)
@@ -141,7 +109,7 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
     a_0_min_limit = np.array(a_0_limits)[a_0_min_which]
 
     # Calculate a0 at mirror throat from flux conservation
-    a_0_end = calculate_a0_end(a_0_min, B_0_grid, B_max)
+    a_0_end = eqn.calculate_a0_end(a_0_min, B_0_grid, B_max)
 
     # Calculate plasma geometry using FRUSTUM model
     L_plasma = np.zeros_like(a_0_min)
@@ -151,7 +119,7 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
 
     for i in range(n_grid_points):
         for j in range(n_grid_points):
-            L, Vp, Vf, A = calculate_plasma_geometry_frustum(
+            L, Vp, Vf, A = eqn.calculate_plasma_geometry_frustum(
                 a_0_min[i, j], a_0_end[i, j], E_b100_grid[i, j], B_0_grid[i, j]
             )
             L_plasma[i, j] = L
@@ -160,11 +128,11 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
             vessel_surface_area[i, j] = A
 
     # Calculate loss coefficient - use vacuum mirror ratio
-    C_loss = calculate_loss_coefficient(E_b100_grid, R_M_vac)
+    C_loss = eqn.calculate_loss_coefficient(E_b100_grid, R_M_vac)
 
     # Calculate required NBI power
-    P_NBI_required = calculate_NBI_power(n_20_grid, V_plasma, E_b100_grid, R_M_vac, C_loss)
-    I_NBI_required = calculate_NBI_current(P_NBI_required, E_b100_grid)
+    P_NBI_required = eqn.calculate_NBI_power(n_20_grid, V_plasma, E_b100_grid, R_M_vac, C_loss)
+    I_NBI_required = eqn.calculate_NBI_current(P_NBI_required, E_b100_grid)
 
     # Calculate beam-target fusion for full grid
     print(f"Calculating beam-target physics for {n_grid_points}×{n_grid_points} grid points...")
@@ -185,11 +153,11 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
                 Vf = V_fus[i, j]
 
                 # Calculate fusion power
-                P_fusion = calculate_fusion_power(E_b_100_point, n_20_point, Vf, T_i)
+                P_fusion = eqn.calculate_fusion_power(E_b_100_point, n_20_point, Vf, T_i)
 
                 # Calculate Q
                 if P_NBI_required[i, j] > 0:
-                    Q = calculate_Q(P_fusion, P_NBI_required[i, j])
+                    Q = eqn.calculate_Q(P_fusion, P_NBI_required[i, j])
                 else:
                     Q = 0
 
@@ -201,11 +169,11 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
                 Q_beam_target[i, j] = 0
 
     # Calculate NWL
-    NWL_beam_target = calculate_NWL(P_fusion_beam_target, vessel_surface_area)
+    NWL_beam_target = eqn.calculate_NWL(P_fusion_beam_target, vessel_surface_area)
 
     # Calculate capacity factor and time-averaged fusion power
     print(f"Calculating capacity factor for grid lifetime...")
-    t_grid = calculate_grid_lifetime(
+    t_grid = eqn.calculate_grid_lifetime(
         E_b100_grid * 100,  # Convert to keV (not 100 keV units!)
         P_NBI_required,
         d_mm=d_grid,
@@ -213,21 +181,21 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
         sigma_y_cm=sigma_y_beam,
         num_grids=num_grids
     )
-    CF_annual = calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
-    P_fus_avg = calculate_average_fusion_power(P_fusion_beam_target, t_grid,
+    CF_annual = eqn.calculate_capacity_factor_annual(t_grid, t_replace_months=t_replace, eta_duty=eta_duty)
+    P_fus_avg = eqn.calculate_average_fusion_power(P_fusion_beam_target, t_grid,
                                                 t_replace_months=t_replace, eta_duty=eta_duty)
 
     # Calculate capacity factor adjusted fusion power density [MW/m³]
     P_fus_avg_density = P_fus_avg / V_fus
 
     # Calculate Revenue/Volume using capacity factor adjusted fusion power
-    Revenue = calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
+    Revenue = eqn.calculate_isotope_revenue(P_fus_avg)  # [$/yr] using <P_fus>
     Rev_per_Vol = Revenue / V_plasma  # [$/yr/m³]
     # Calculate end plug magnetic field and heat flux
-    Bw = calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
+    Bw = eqn.calculate_Bw(E_b100_grid, B_0_grid, a_0_min)
 
     # BUG FIX: Use Q_beam_target instead of undefined Q
-    q_w = calculate_heat_flux(P_NBI_required, Q_beam_target, a_0_min, B_0_grid, Bw)
+    q_w = eqn.calculate_heat_flux(P_NBI_required, Q_beam_target, a_0_min, B_0_grid, Bw)
 
     # Create masks for different regions
     mask_beta = n_20_grid > n_20_beta_limit
@@ -235,7 +203,7 @@ def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
     mask_low_NWL = NWL_beam_target < min_NWL
     mask_nbi_limit = P_NBI_required > max_nbi_power_ftop
     # Mask for where density is too high for ECRH to heat center
-    n_cutoff = calculate_max_n20_ecrh(B_central)
+    n_cutoff = eqn.calculate_max_n20_ecrh(B_central)
     mask_ecrh_cutoff = n_20_grid > n_cutoff
     mask_invalid = mask_beta | mask_heat_flux | mask_ecrh_cutoff | mask_low_NWL | mask_nbi_limit
     

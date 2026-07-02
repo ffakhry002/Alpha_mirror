@@ -2,8 +2,10 @@
 Helper functions for Git info
 """
 
-import subprocess
 from pathlib import Path
+import os
+import subprocess
+import tomllib
 
 def get_repo_root() -> Path:
     """
@@ -20,3 +22,11 @@ def get_git_hash() -> str:
     return subprocess.check_output(
         ['git', 'rev-parse', '--short', 'HEAD']
     ).decode('ascii').strip()
+
+def load_config():
+    config_path = get_repo_root() / "config.toml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    with open(config_path, "rb") as f:
+        config = tomllib.load(f)
+    return config

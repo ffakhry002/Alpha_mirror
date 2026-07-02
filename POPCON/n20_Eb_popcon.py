@@ -70,11 +70,6 @@ def add_label_outline(clabels, linewidth=2, foreground='k'):
             pe.withStroke(linewidth=linewidth, foreground=foreground)
         ])
 
-def get_git_hash():
-    return subprocess.check_output(
-        ['git', 'rev-parse', '--short', 'HEAD']
-    ).decode('ascii').strip()
-
 def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, test_points_list=test_points_list):
     """Create full POPCON plot with beam-target fusion physics using frustum geometry"""
     # Calculate vacuum mirror ratio

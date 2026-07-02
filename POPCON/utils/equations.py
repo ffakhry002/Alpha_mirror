@@ -9,7 +9,7 @@ import scipy.constants as const
 import pandas as pd
 
 from n20_Eb_inputs import min_L
-from utils.git_tools import get_repo_root
+from POPCON.utils.repo_tools import get_repo_root
 
 # ============================================================================
 # PHYSICS CONSTANTS
