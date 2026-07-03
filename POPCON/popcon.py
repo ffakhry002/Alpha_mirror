@@ -38,33 +38,39 @@ class Popcon():
         self.B_0_vac = Params.B_central_default if B_0_vac is None else B_0_vac
         self.B_m = Params.B_max_default if B_m is None else B_m
         self.N_rho = Params.N_rho_default if N_rho is None else N_rho
+        # Input derived quantities
+        self.R_M_vac = self.B_m / self.B_0_vac
 
         # Popcon outpus
-        self.R_M_vac
-        self.E_b100_grid    # [100keV]
-        self.n_20_grid      # [1e20 m^-3]
-        self.beta_local     # Beta with diamagnetic correction
-        self.B_0_grid       # 2D grid of B_0 with diamagnetic contribution [T]
-        self.R_M_dmag       # 2D grid of mirror ratio incl. diamagnetic effects
-        self.a_0_dict       # Dictionary storing 2D arrays of each min constraint on a_0 [m]
-        self.a_0_min        # 2D array of final limit on a_0 [m]
-        self.a_0_min_limit  # 2D array of strings describing limiting constraint on a_0
-        self.L_mirror       # 2D array of distances between mirror throats [m]
-        self.V_plasma       # 2D array of plasma volumes from frustum model [m^-3]
-        self.C_loss         # 2D array of particle confinement times [s]
-        self.P_nbi          # 2D array of NBI powers required for flattop fueling [MW]
-        self.Q_phy          # 2D array of fusion power gain (physics)
-        self.NWL            # 2D array of Neutron Wall Loading [MW/m^2]
-        self.P_fus          # 2D array of fusion power during flattop [MW]
-        self.P_fus_avg      # 2D array of capacity factor averaged fusion power [MW]
-        self.CF             # 2D array of Capacity Factors for VNS
-        self.rev_per_vol    # 2D array of revenue per unit plasma volume [$/m^-3]
+        self.E_b100_grid = None    # [100keV]
+        self.n_20_grid = None      # [1e20 m^-3]
+        self.beta_local = None     # Beta with diamagnetic correction
+        self.B_0_grid = None       # 2D grid of B_0 with diamagnetic contribution [T]
+        self.R_M_dmag = None       # 2D grid of mirror ratio incl. diamagnetic effects
+        self.a_0_dict = None       # Dictionary storing 2D arrays of each min constraint on a_0 [m]
+        self.a_0_min = None        # 2D array of final limit on a_0 [m]
+        self.a_0_min_limit = None  # 2D array of strings describing limiting constraint on a_0
+        self.L_mirror = None       # 2D array of distances between mirror throats [m]
+        self.V_plasma = None       # 2D array of plasma volumes from frustum model [m^-3]
+        self.C_loss = None         # 2D array of particle confinement times [s]
+        self.P_nbi = None         # 2D array of NBI powers required for flattop fueling [MW]
+        self.Q_phy = None          # 2D array of fusion power gain (physics)
+        self.NWL = None            # 2D array of Neutron Wall Loading [MW/m^2]
+        self.P_fus = None          # 2D array of fusion power during flattop [MW]
+        self.P_fus_avg = None      # 2D array of capacity factor averaged fusion power [MW]
+        self.CF = None             # 2D array of Capacity Factors for VNS
+        self.rev_per_vol = None    # 2D array of revenue per unit plasma volume [$/m^-3]
+        self.collisionality = None # ... collsionality
+        self.end_plate_voltage = None  # ... Required voltage of end plates for vortex stabilization [V]
+        self.B_w = None            # Min limit of magnetic field at end plate [T]
+        self.q_w = None            # Heat flux at end plates [MW/m^2]
+        
 
     
     def create_popcon(self):
-        # Calculate vacuum mirror ratio
-        self.R_M_vac = self.B_m / self.B_0_vac
-
+        """
+        Calculates all the POPCON output quantities on a 2D grid of n_20 vs Eb
+        """
         # Create grid using input E_b range
         E_b100 = np.linspace(Params.E_b_min, Params.E_b_max, Params.n_grid_points)
         n_20_max = eqn.calculate_beta_limit(Params.E_b_min, self.B_0_vac, Params.beta_c_default)
@@ -87,7 +93,7 @@ class Popcon():
         a_0_DCLC = eqn.calculate_a0_DCLC(self.E_b100_grid, self.B_0_grid, N_rho=self.N_rho)  # DCLC stabilization
         a_0_adiabatic = eqn.calculate_a0_adiabaticity(self.E_b100_grid, self.B_0_grid, self.beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
         a_0_cold_neutrals = eqn.calculate_a0_cold_neutral_mfp(self.n_20_grid)
-        a_0_eng = Params.min_a0 * np.ones_like(self.a_0_abs) # Practical engineering constraint
+        a_0_eng = Params.min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint
         # Stack all arrays along a new axis and find limiting constraint on a_0
         self.a_0_dict = {
             'abs':    a_0_abs,
@@ -189,9 +195,9 @@ class Popcon():
         print(f"Revenue/Volume range: {np.nanmin(self.rev_per_vol)/1e6:.2f} - {np.nanmax(self.rev_per_vol)/1e6:.2f} $M/yr/m³")
 
         # Calculate collisionality for sanity check
-        collisionality = eqn.calculate_collisionality(E_b_100keV=self.E_b100_grid, n_20=self.n_20_grid, L_plasma=self.L_mirror)
-        print(f"Max collisionality: {np.nanmax(collisionality)}")
-        print(f"Min collisionality: {np.nanmin(collisionality)}")
+        self.collisionality = eqn.calculate_collisionality(E_b_100keV=self.E_b100_grid, n_20=self.n_20_grid, L_plasma=self.L_mirror)
+        print(f"Max collisionality: {np.nanmax(self.collisionality)}")
+        print(f"Min collisionality: {np.nanmin(self.collisionality)}")
 
         # Calculate end-plate voltage bias for vortex stabilization
         voltage_cl = eqn.calculate_voltage_closed_lines(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror, self.R_M_dmag)
@@ -200,32 +206,32 @@ class Popcon():
         voltage_fr = eqn.calculate_voltage_field_reversal(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror, self.R_M_dmag)
         print(f"Max Voltage for field reversal: {np.nanmax(voltage_fr)}")
         print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
-        end_plate_voltage = np.maximum(voltage_cl, voltage_fr)
+        self.end_plate_voltage = np.maximum(voltage_cl, voltage_fr)
 
         # Calculate mirror ratio limit for vortex stabilization
         max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror)
         print(f"Max Rm for vortex stabilization: {np.nanmin(max_R_M_vortex)}")
 
         # Calculate end plug magnetic field and heat flux
-        Bw = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min)
+        self.B_w = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min)
 
         # BUG FIX: Use self.Q_phy instead of undefined Q
-        q_w = eqn.calculate_heat_flux(self.P_nbi, self.Q_phy, self.a_0_min, self.B_0_grid, Bw)
+        self.q_w = eqn.calculate_heat_flux(self.P_nbi, self.Q_phy, self.a_0_min, self.B_0_grid, self.B_w)
 
         # Calculate end plug radius
-        a_w = eqn.calculate_a_w(self.a_0_min, self.B_0_grid, Bw)
+        self.a_w = eqn.calculate_a_w(self.a_0_min, self.B_0_grid, self.B_w)
 
         # Create masks for different regions
         mask_beta = self.n_20_grid > n_20_beta_limit
-        mask_heat_flux = q_w >= 5
+        mask_heat_flux = self.q_w >= 5
         mask_low_NWL = self.NWL < Params.min_NWL
         #mask_nbi_current_limit = I_NBI_required > max_nbi_current
 
         # NEW: Mask for invalid Bw region
         # Valid when Bw < B_max/74 (eqn.calculated end-wall field must be achievable)
         # Invalid when Bw > B_max/74 (required end-wall field too high)
-        Bw_max_limit = self.B_m / 74.0  # Maximum allowable Bw
-        mask_Bw_invalid = Bw > Bw_max_limit  # Invalid where Bw exceeds limit
+        Bw_max_limit = self.B_m / 74.0  # Maximum allowable self.B_w
+        mask_Bw_invalid = self.B_w > Bw_max_limit  # Invalid where Bw exceeds limit
 
         # Mask for where density is too high for ECRH to heat center
         # TODO: Consider diamagnetic effects in cutoff density
@@ -233,7 +239,7 @@ class Popcon():
         print(f"Cutoff density: {n_cutoff}")
         mask_ecrh_cutoff = self.n_20_grid > n_cutoff
 
-        print(f"Bw range: {np.nanmin(Bw):.3f} - {np.nanmax(Bw):.3f} T")
+        print(f"Bw range: {np.nanmin(self.B_w):.3f} - {np.nanmax(self.B_w):.3f} T")
         print(f"Bw_max_limit (B_max/74): {Bw_max_limit:.3f} T")
         print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
 
@@ -285,7 +291,7 @@ class Popcon():
 
 
         # NEW: Bw = B_max/74 boundary line (valid below, invalid above)
-        Bw_boundary = Bw - Bw_max_limit
+        Bw_boundary = self.B_w - Bw_max_limit
         CS_Bw_boundary = ax.contour(self.E_b100_grid, self.n_20_grid, Bw_boundary,
                 levels=[0], colors=['red'], linewidths=2, linestyles=':', zorder=4)
         # ax.plot([], [], color='red', linewidth=2, linestyle=':',
@@ -395,7 +401,7 @@ class Popcon():
             ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
 
         # Heat flux limit contour
-        q_w_valid = q_w.copy()
+        q_w_valid = self.q_w.copy()
         q_w_valid[mask_beta | mask_black | mask_white] = np.nan
         ax.contour(self.E_b100_grid, self.n_20_grid, q_w_valid,
                 levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
@@ -437,7 +443,7 @@ class Popcon():
 
         # end plate voltage contours
         if len(Params.voltage_levels) > 0:
-            voltage_valid = end_plate_voltage.copy()
+            voltage_valid = self.end_plate_voltage.copy()
             voltage_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
             CS_V = ax.contour(self.E_b100_grid, self.n_20_grid, voltage_valid,
                             levels=Params.voltage_levels, colors='#a0a0a0', linewidths=3,
@@ -472,7 +478,7 @@ class Popcon():
             ax.clabel(CS_V, inline=True, fontsize=9, fmt='V=%.1f m³')
 
         # Gray out hard limits
-        ax.contourf(self.E_b100_grid, self.self.n_20_grid, mask_gray.astype(int),
+        ax.contourf(self.E_b100_grid, self.n_20_grid, mask_gray.astype(int),
             levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
         
         # Text for hard limits
