@@ -70,15 +70,6 @@ def add_label_outline(clabels, linewidth=2, foreground='k'):
             pe.withStroke(linewidth=linewidth, foreground=foreground)
         ])
 
-def create_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, N_rho=N_rho_default):
-    pass
-
-def test_popcon_points():
-    pass
-
-def plot_popcon():
-    pass
-
 def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, test_points_list=test_points_list):
     """Create full POPCON plot with beam-target fusion physics using frustum geometry"""
     # Calculate vacuum mirror ratio
@@ -103,7 +94,7 @@ def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=
 
     # Calculate geometry constraints
     a_0_abs = eqn.calculate_a0_absorption(E_b100_grid, n_20_grid)
-    a_0_DCLC = eqn.calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho)  # DCLC stabilization
+    a_0_DCLC = eqn.calculate_a0_DCLC(E_b100_grid, B_0_grid, N_rho=N_rho_default)  # DCLC stabilization
     a_0_adiabatic = eqn.calculate_a0_adiabaticity(E_b100_grid, B_0_grid, beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
     a_0_cold_neutrals = eqn.calculate_a0_cold_neutral_mfp(n_20_grid)
     a_0_min = np.maximum(np.maximum(a_0_abs, a_0_DCLC), np.maximum(a_0_cold_neutrals, a_0_adiabatic))
@@ -568,7 +559,7 @@ def test_multiple_points(test_points=test_points_list, B_max=B_max_default,
         R_M_dmag = B_max / B_0
 
         a_0_abs = eqn.calculate_a0_absorption(E_b_100, n_20_target)
-        a_0_DCLC = eqn.calculate_a0_DCLC(E_b_100, B_0, N_rho=N_rho)
+        a_0_DCLC = eqn.calculate_a0_DCLC(E_b_100, B_0, N_rho=N_rho_default)
         # BUG FIX: Use beta_local instead of undefined beta
         a_0_adiabatic = eqn.calculate_a0_adiabaticity(E_b_100, B_0, beta_local)
         a_0_nmfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n_20_target)[0]
