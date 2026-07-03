@@ -201,11 +201,6 @@ class Popcon():
         revenue = eqn.calculate_isotope_revenue(self.P_fus_avg)  # [$/yr] using <P_fus>
         self.rev_per_vol = revenue / self.V_plasma  # [$/yr/m³]
 
-        print(f"Capacity factor range: {np.nanmin(self.CF):.3f} - {np.nanmax(self.CF):.3f}")
-        print(f"Grid lifetime range: {np.nanmin(t_grid):.1f} - {np.nanmax(t_grid):.1f} hours")
-        print(f"⟨P_fus⟩/V range: {np.nanmin(P_fus_avg_density):.2f} - {np.nanmax(P_fus_avg_density):.2f} MW/m³")
-        print(f"Revenue/Volume range: {np.nanmin(self.rev_per_vol)/1e6:.2f} - {np.nanmax(self.rev_per_vol)/1e6:.2f} $M/yr/m³")
-
         # Calculate collisionality for sanity check
         self.collisionality = eqn.calculate_collisionality(E_b_100keV=self.E_b100_grid, n_20=self.n_20_grid, L_plasma=self.L_mirror)
         print(f"Max collisionality: {np.nanmax(self.collisionality)}")
@@ -213,16 +208,11 @@ class Popcon():
 
         # Calculate end-plate voltage bias for vortex stabilization
         voltage_cl = eqn.calculate_voltage_closed_lines(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror, self.R_M_dmag)
-        print(f"Max Voltage for flow closure: {np.nanmax(voltage_cl)}")
-        print(f"Min Voltage for flow closure: {np.nanmin(voltage_cl)}")
         voltage_fr = eqn.calculate_voltage_field_reversal(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror, self.R_M_dmag)
-        print(f"Max Voltage for field reversal: {np.nanmax(voltage_fr)}")
-        print(f"Min Voltage for field reversal: {np.nanmin(voltage_fr)}")
         self.end_plate_voltage = np.maximum(voltage_cl, voltage_fr)
 
         # Calculate mirror ratio limit for vortex stabilization
         self.max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror)
-        print(f"Max Rm for vortex stabilization: {np.nanmin(self.max_R_M_vortex)}")
 
         # Calculate end plate params
         self.B_w = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min)
@@ -246,12 +236,7 @@ class Popcon():
         # Mask for where density is too high for ECRH to heat center
         # TODO: Consider diamagnetic effects in cutoff density
         self.n_cutoff = eqn.calculate_max_n20_ecrh(self.B_0_vac)
-        print(f"Cutoff density: {self.n_cutoff}")
         mask_ecrh_cutoff = self.n_20_grid > self.n_cutoff
-
-        print(f"Bw range: {np.nanmin(self.B_w):.3f} - {np.nanmax(self.B_w):.3f} T")
-        print(f"Bw_max_limit (B_max/74): {self.B_w_max_limit:.3f} T")
-        print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
 
         self.invalid = mask_high_beta | mask_high_heat_flux | mask_ecrh_cutoff | mask_Bw_invalid
         self.invalid_dict = {
@@ -261,7 +246,20 @@ class Popcon():
             'Bw_invalid': mask_Bw_invalid,
         }
         return self
-
+    
+    def get_idx_max_rev_per_vol(self, max_pnbi=Params.max_nbi_power_ftop, min_nwl=Params.min_NWL)-> tuple:
+        """
+        Returns the indices of the valid operating point in the POPCON
+        that has the highest revenue per volume. 
+        Can additionally specify a maximum Pnbi and minimum NWL for the selected point
+        """
+        # Find max Rev per volume over the valid region by making invalid points -inf
+        mask_high_pnbi = self.P_nbi > max_pnbi
+        mask_low_nwl = self.NWL < min_nwl
+        mask_valid = ~ (mask_high_pnbi | mask_low_nwl | self.invalid)
+        rev_per_vol_valid = np.where(mask_valid, self.rev_per_vol, -np.inf)
+        i, j = np.unravel_index(np.argmax(rev_per_vol_valid), rev_per_vol_valid.shape)
+        return i, j
 
     def plot_popcon(self, save_fig=True):
         """
