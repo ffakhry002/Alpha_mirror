@@ -5,6 +5,8 @@ Class to store input parameters to the POPCON
 import numpy as np
 from pathlib import Path
 
+from POPCON.utils.repo_tools import get_repo_root
+
 class Params():
 
     # Magnetic field parameters
@@ -120,16 +122,9 @@ class Params():
     #V_levels = np.array(np.arange(0, 0.4, 0.05))
     V_levels = np.array([])
 
-    # test_points_list = [(0.40, 2.35), 
-    #                     (0.4737, 2.102), 
-    #                     (0.4737, 2.17), 
-    #                     (0.55, 2.03), 
-    #                     (0.6, 1.94), 
-    #                     (0.70, 1.79),
-    # ]
     test_points_list = [(0.5747, 2.71434)]
 
-    figures_dir = Path(__file__).parent / 'figures'
+    figures_dir = get_repo_root() / 'figures'
     figures_dir.mkdir(exist_ok=True)
 
     # Figure settings

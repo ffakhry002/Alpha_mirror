@@ -23,7 +23,7 @@ def add_label_outline(clabels, linewidth=2, foreground='k'):
         ])
 
 class Popcon():
-    # TODO: Convert everything to xarray
+    # TODO: Convert data on Eb, n20 grid to xarray
 
     def __init__(self, B_0_vac=None, B_m=None, N_rho=None):
         """
@@ -66,11 +66,14 @@ class Popcon():
         self.a_w = None            # Plasma radius at end rings
         self.max_R_M_vortex = None # Maximum mirror ratio for votex stabilization to work
         self.q_w = None            # Heat flux at end plates [MW/m^2]
+        self.ion_flux_target = None # Ion flux on end rings [m^-2 s^-1]
+        self.ero_rate_w = None      # Erosion rate of tungsten [mm/yr]
         self.invalid = None        # Mask of all points that violate constraints
         self.invalid_dict = None   # Dictionary containing masks for each constraint
 
-        # Useful for plotting, maybe rework plotting function later
+        # Useful for plotting and test points, maybe rework plotting function later
         self.E_b100 = None
+        self.n_20 = None
         self.n_20_beta_limit = None
         self.n_cutoff = None
         self.B_w_max_limit = None
@@ -83,9 +86,9 @@ class Popcon():
         # Create grid using input E_b range
         self.E_b100 = np.linspace(Params.E_b_min, Params.E_b_max, Params.n_grid_points)
         n_20_max = eqn.calculate_beta_limit(Params.E_b_min, self.B_0_vac, Params.beta_c_default)
-        n_20 = np.linspace(Params.n_20_min, n_20_max, Params.n_grid_points)
+        self.n_20 = np.linspace(Params.n_20_min, n_20_max, Params.n_grid_points)
 
-        self.E_b100_grid, self.n_20_grid = np.meshgrid(self.E_b100, n_20)
+        self.E_b100_grid, self.n_20_grid = np.meshgrid(self.E_b100, self.n_20)
 
         # Calculate constraints with NEW beta formulation
         self.n_20_beta_limit = eqn.calculate_beta_limit(self.E_b100_grid, self.B_0_vac, Params.beta_c_default)
@@ -221,14 +224,12 @@ class Popcon():
         self.max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror)
         print(f"Max Rm for vortex stabilization: {np.nanmin(self.max_R_M_vortex)}")
 
-        # Calculate end plug magnetic field and heat flux
+        # Calculate end plate params
         self.B_w = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min)
-
-        # BUG FIX: Use self.Q_phy instead of undefined Q
         self.q_w = eqn.calculate_heat_flux(self.P_nbi, self.Q_phy, self.a_0_min, self.B_0_grid, self.B_w)
-
-        # Calculate end plug radius
         self.a_w = eqn.calculate_a_w(self.a_0_min, self.B_0_grid, self.B_w)
+        self.ion_flux_target = eqn.calculate_ion_flux_on_target(P_nbi=self.P_nbi, E_b_100keV=self.E_b100_grid, a_w=self.a_w)
+        self.ero_rate_w = eqn.calculate_target_erosion_rate(P_nbi=self.P_nbi, E_b_100keV=self.E_b100_grid, a_w=self.a_w)
 
         # Create masks for different regions
         mask_high_beta = self.n_20_grid > self.n_20_beta_limit
@@ -262,7 +263,7 @@ class Popcon():
         return self
 
 
-    def plot_popcon(self):
+    def plot_popcon(self, save_fig=True):
         """
         Plots the POPCON with a 2D heatmap of Revenue vs Volume
         and contours showing other quantities of interest specified in self.params
@@ -543,10 +544,42 @@ class Popcon():
         #              fontsize=12, weight='bold')
         ax.set_title(rf'$B_m = {self.B_m:.0f}$ T, $B_0 = {self.B_0_vac:.2f}$ T', fontsize=18)
         plt.tight_layout()
+        if save_fig:
+            output_path = Params.figures_dir / 'POPCON_n20_Eb_Frustum.png'
+            fig.savefig(output_path, dpi=Params.figure_dpi, bbox_inches='tight')
+            print(f"Saved: {output_path}")
         return fig
 
-    def test_points():
-        pass
+    def print_test_points(self, test_points=Params.test_points_list):
+        print("\n" + "="*100)
+        # print(f"TESTING MULTIPLE DESIGN POINTS: B_max={B_max}T, B_central={B_central}T, R_M_vac={R_M_vac:.2f}")
+        print("="*100)
+
+        # Header
+        print(f"\n{'E_b':>6} {'n_20':>6} {'Rev/V':>8} {'CF':>6} {'β':>8} {'B_0':>6}"
+            f"{'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} {'a0_nmfp':>7}"
+            f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
+            f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} "
+            f"{'ion_flux_w':>12} {'ero_rate_w':>8}")
+        print(f"{'[keV]':>6} {'[e20]':>6} {'[$M/yr/m^3]':>8} {'':>6} {'':>6} {'[T]':>6} {'':>6} {'[m]':>7} {'[m]':>7} {'[m]':>7}"
+            f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
+            f"{'[MW/m²]':>6} {'':>5} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>12} {'[mm/yr]':>12}")
+        print("-"*100)
+
+        for E_b100_target, n_20_target in test_points:
+            # Get j then i due to how np.meshgrid orients the array
+            j = np.argmin(np.abs(self.E_b100 - E_b100_target))
+            i = np.argmin(np.abs(self.n_20 - n_20_target))
+
+            print(f"{E_b100_target/100:6.0f} {n_20_target:6.2f} {self.rev_per_vol[i,j]/1e6:9.0f}" 
+                  f"{self.CF[i,j]:6.3f} {self.beta_local[i,j]:6.3f} {self.B_0_grid[i,j]:6.3f} "
+                  f"{self.R_M_dmag[i,j]:7.2f} {self.a_0_dict['abs'][i,j]:7.4f} {self.a_0_dict['DCLC'][i,j]:7.4f}"
+                  f"{self.a_0_dict['N MFP'][i,j]:7.4f} {self.a_0_min[i,j]:7.4f} {self.L_mirror[i,j]:6.2f} "
+                  f"{self.V_plasma[i,j]:7.3f} {self.C_loss[i,j]:7.4f} {self.P_fus[i,j]:7.2f} {self.P_nbi[i,j]:7.2f} "
+                  f"{self.NWL[i,j]:6.3f} {self.Q_phy[i,j]:6.3f} {self.a_0_min_limit[i,j]:>6} {self.q_w[i,j]:6.1f}"
+                  f"{self.a_w[i,j]:6.3} {self.B_w[i,j]:6.3} {self.ion_flux_target[i,j]/1e20:12.2f}"
+                  f"{self.ero_rate_w[i,j]:7.4f}") 
+        return
 
 if __name__ == "__main__":
     print("Creating Beam-Target Fusion POPCON plots with frustum geometry...")
@@ -560,18 +593,12 @@ if __name__ == "__main__":
 
     # Test multiple design points
     print("\nTesting design points...")
-    #Params.test_multiple_points()
 
     # Create main POPCON with default parameters
     plt.rcParams['font.size'] = 14
     print("\nCreating main beam-target POPCON...")
     popcon = Popcon()
     popcon.create_popcon()
+    popcon.print_test_points()
     fig_single = popcon.plot_popcon()
-
-    # Save figure
-    output_path = Params.figures_dir / 'POPCON_n20_Eb_Frustum.png'
-    fig_single.savefig(output_path, dpi=Params.figure_dpi, bbox_inches='tight')
-    print(f"Saved: {output_path}")
-
     plt.show()
