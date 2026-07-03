@@ -8,7 +8,6 @@ Injection angle of 45 degrees is assumed.
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 import numpy as np
-import xarray as xr
 
 import POPCON.utils.equations as eqn
 from POPCON.params import Params
@@ -34,7 +33,7 @@ class Popcon():
         - B_m, float: override mirror magnetic field, [T]
         - N_rho, float: override N_rho = a_0/rho_i
         """
-        # Popcon inputs that can be overridden
+        # Popcon inputs that can be overridden bc we may want to scan them
         self.B_0_vac = Params.B_central_default if B_0_vac is None else B_0_vac
         self.B_m = Params.B_max_default if B_m is None else B_m
         self.N_rho = Params.N_rho_default if N_rho is None else N_rho
@@ -42,6 +41,7 @@ class Popcon():
         self.R_M_vac = self.B_m / self.B_0_vac
 
         # Popcon outpus
+        # Can later make this an xarray DataSet
         self.E_b100_grid = None    # [100keV]
         self.n_20_grid = None      # [1e20 m^-3]
         self.beta_local = None     # Beta with diamagnetic correction
@@ -63,24 +63,32 @@ class Popcon():
         self.collisionality = None # ... collsionality
         self.end_plate_voltage = None  # ... Required voltage of end plates for vortex stabilization [V]
         self.B_w = None            # Min limit of magnetic field at end plate [T]
+        self.a_w = None            # Plasma radius at end rings
+        self.max_R_M_vortex = None # Maximum mirror ratio for votex stabilization to work
         self.q_w = None            # Heat flux at end plates [MW/m^2]
         self.invalid = None        # Mask of all points that violate constraints
         self.invalid_dict = None   # Dictionary containing masks for each constraint
-        
+
+        # Useful for plotting, maybe rework plotting function later
+        self.E_b100 = None
+        self.n_20_beta_limit = None
+        self.n_cutoff = None
+        self.B_w_max_limit = None
     
     def create_popcon(self):
         """
         Calculates all the POPCON output quantities on a 2D grid of n_20 vs Eb
+        Returns the popcon object
         """
         # Create grid using input E_b range
-        E_b100 = np.linspace(Params.E_b_min, Params.E_b_max, Params.n_grid_points)
+        self.E_b100 = np.linspace(Params.E_b_min, Params.E_b_max, Params.n_grid_points)
         n_20_max = eqn.calculate_beta_limit(Params.E_b_min, self.B_0_vac, Params.beta_c_default)
         n_20 = np.linspace(Params.n_20_min, n_20_max, Params.n_grid_points)
 
-        self.E_b100_grid, self.n_20_grid = np.meshgrid(E_b100, n_20)
+        self.E_b100_grid, self.n_20_grid = np.meshgrid(self.E_b100, n_20)
 
         # Calculate constraints with NEW beta formulation
-        n_20_beta_limit = eqn.calculate_beta_limit(self.E_b100_grid, self.B_0_vac, Params.beta_c_default)
+        self.n_20_beta_limit = eqn.calculate_beta_limit(self.E_b100_grid, self.B_0_vac, Params.beta_c_default)
 
         # Calculate local beta and on-axis field (diamagnetically adjusted)
         self.beta_local = eqn.calculate_beta_local(self.n_20_grid, self.E_b100_grid, self.B_0_vac)
@@ -210,8 +218,8 @@ class Popcon():
         self.end_plate_voltage = np.maximum(voltage_cl, voltage_fr)
 
         # Calculate mirror ratio limit for vortex stabilization
-        max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror)
-        print(f"Max Rm for vortex stabilization: {np.nanmin(max_R_M_vortex)}")
+        self.max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror)
+        print(f"Max Rm for vortex stabilization: {np.nanmin(self.max_R_M_vortex)}")
 
         # Calculate end plug magnetic field and heat flux
         self.B_w = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min)
@@ -223,7 +231,7 @@ class Popcon():
         self.a_w = eqn.calculate_a_w(self.a_0_min, self.B_0_grid, self.B_w)
 
         # Create masks for different regions
-        mask_high_beta = self.n_20_grid > n_20_beta_limit
+        mask_high_beta = self.n_20_grid > self.n_20_beta_limit
         mask_high_heat_flux = self.q_w >= 5
         mask_low_NWL = self.NWL < Params.min_NWL
         #mask_nbi_current_limit = I_NBI_required > max_nbi_current
@@ -231,17 +239,17 @@ class Popcon():
         # NEW: Mask for invalid Bw region
         # Valid when Bw < B_max/74 (eqn.calculated end-wall field must be achievable)
         # Invalid when Bw > B_max/74 (required end-wall field too high)
-        Bw_max_limit = self.B_m / 74.0  # Maximum allowable self.B_w
-        mask_Bw_invalid = self.B_w > Bw_max_limit  # Invalid where Bw exceeds limit
+        self.B_w_max_limit = self.B_m / 74.0  # Maximum allowable self.B_w
+        mask_Bw_invalid = self.B_w > self.B_w_max_limit  # Invalid where Bw exceeds limit
 
         # Mask for where density is too high for ECRH to heat center
         # TODO: Consider diamagnetic effects in cutoff density
-        n_cutoff = eqn.calculate_max_n20_ecrh(self.B_0_vac)
-        print(f"Cutoff density: {n_cutoff}")
-        mask_ecrh_cutoff = self.n_20_grid > n_cutoff
+        self.n_cutoff = eqn.calculate_max_n20_ecrh(self.B_0_vac)
+        print(f"Cutoff density: {self.n_cutoff}")
+        mask_ecrh_cutoff = self.n_20_grid > self.n_cutoff
 
         print(f"Bw range: {np.nanmin(self.B_w):.3f} - {np.nanmax(self.B_w):.3f} T")
-        print(f"Bw_max_limit (B_max/74): {Bw_max_limit:.3f} T")
+        print(f"Bw_max_limit (B_max/74): {self.B_w_max_limit:.3f} T")
         print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
 
         self.invalid = mask_high_beta | mask_high_heat_flux | mask_ecrh_cutoff | mask_Bw_invalid
@@ -251,7 +259,15 @@ class Popcon():
             'ecrh_cutoff': mask_ecrh_cutoff,
             'Bw_invalid': mask_Bw_invalid,
         }
+        return self
 
+
+    def plot_popcon(self):
+        """
+        Plots the POPCON with a 2D heatmap of Revenue vs Volume
+        and contours showing other quantities of interest specified in self.params
+        Returns the figure
+        """
         # Fill regions
         fig, ax = plt.subplots(figsize=Params.figure_size)
         ax.contourf(self.E_b100_grid, self.n_20_grid, self.invalid.astype(int),
@@ -281,15 +297,15 @@ class Popcon():
         NWL_valid[self.invalid] = np.nan
 
         # Beta limit line
-        ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=4, zorder=5,
+        ax.plot(self.E_b100, self.n_20_beta_limit[0, :], 'purple', linewidth=4, zorder=5,
                 label='Beta limit')
         
         # Max density line for cutoff
-        ax.axhline(n_cutoff, linestyle='-', linewidth=4, c='cyan', zorder=5)
+        ax.axhline(self.n_cutoff, linestyle='-', linewidth=4, c='cyan', zorder=5)
 
 
         # NEW: Bw = B_max/74 boundary line (valid below, invalid above)
-        Bw_boundary = self.B_w - Bw_max_limit
+        Bw_boundary = self.B_w - self.B_w_max_limit
         CS_Bw_boundary = ax.contour(self.E_b100_grid, self.n_20_grid, Bw_boundary,
                 levels=[0], colors=['red'], linewidths=2, linestyles=':', zorder=4)
         # ax.plot([], [], color='red', linewidth=2, linestyle=':',
@@ -399,10 +415,11 @@ class Popcon():
             ax.clabel(CS_RM, inline=True, fontsize=9, fmt='R_M_dmag=%.0f')
 
         # Heat flux limit contour
+        # TODO: Plot other contours like this so that we don't need extra instance variables
         q_w_valid = self.q_w.copy()
-        q_w_valid[mask_high_beta] = np.nan
+        q_w_valid[self.invalid_dict['high_beta']] = np.nan
         ax.contour(self.E_b100_grid, self.n_20_grid, q_w_valid,
-                levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
+                levels=[Params.qw_limit], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
         ax.plot([], [], color='tab:orange', linewidth=3, linestyle='-',
                 label=f"$q_w$={Params.qw_limit} MW/m^2 limit")
 
@@ -415,7 +432,7 @@ class Popcon():
 
         # End-plug magnetic field levels
         if len(Params.Bw_levels) > 0:
-            Bw_valid = Bw.copy()
+            Bw_valid = self.B_w.copy()
             Bw_valid[self.invalid] = np.nan
             CS_BW = ax.contour(self.E_b100_grid, self.n_20_grid, Bw_valid,
                             levels=Params.Bw_levels, colors='lime', linewidths=2,
@@ -423,7 +440,7 @@ class Popcon():
             ax.clabel(CS_BW, inline=True, fontsize=10, fmt='$B_w$=%.2f')
 
         if len(Params.a_w_levels) > 0:
-            a_w_valid = a_w.copy()
+            a_w_valid = self.a_w.copy()
             a_w_valid[self.invalid] = np.nan
             CS_AW = ax.contour(self.E_b100_grid, self.n_20_grid, a_w_valid,
                             levels=Params.a_w_levels, colors='magenta', linewidths=2,
@@ -432,7 +449,7 @@ class Popcon():
 
         # Max R_M contours for vortex stabilization
         if len(Params.max_R_M_vortex_levels) > 0:
-            max_R_M_vortex_valid = max_R_M_vortex.copy()
+            max_R_M_vortex_valid = self.max_R_M_vortex.copy()
             max_R_M_vortex_valid[self.invalid] = np.nan
             CS_RM = ax.contour(self.E_b100_grid, self.n_20_grid, max_R_M_vortex_valid,
                             levels=Params.max_R_M_vortex_levels, colors='magenta', linewidths=2,
@@ -482,7 +499,6 @@ class Popcon():
         # Text for hard limits
         ax.text(1.0, 2.93, 'Beta Limit', fontsize=18, c='purple', rotation=-40, zorder=10)
         ax.text(0.55, 3.7, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
-        # ax.text(0.22, 2.65, 'Too small for NBI', fontsize=18, c='k', rotation=80, zorder=10)
 
         # Test point:
         for Eb, n20 in Params.test_points_list:
@@ -526,14 +542,8 @@ class Popcon():
         #              f'Frustum Geometry | Git Hash: {get_git_hash()}',
         #              fontsize=12, weight='bold')
         ax.set_title(rf'$B_m = {self.B_m:.0f}$ T, $B_0 = {self.B_0_vac:.2f}$ T', fontsize=18)
-
         plt.tight_layout()
-
         return fig
-
-
-    def plot_popcon():
-        pass
 
     def test_points():
         pass
@@ -556,7 +566,8 @@ if __name__ == "__main__":
     plt.rcParams['font.size'] = 14
     print("\nCreating main beam-target POPCON...")
     popcon = Popcon()
-    fig_single = popcon.create_popcon()
+    popcon.create_popcon()
+    fig_single = popcon.plot_popcon()
 
     # Save figure
     output_path = Params.figures_dir / 'POPCON_n20_Eb_Frustum.png'
