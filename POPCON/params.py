@@ -1,0 +1,137 @@
+"""
+Class to store input parameters to the POPCON
+"""
+
+import numpy as np
+from pathlib import Path
+
+class Params():
+
+    # Magnetic field parameters
+    B_max_default = 25.0         # Maximum mirror field [T]
+    B_central_default = 6.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+    beta_c_default = 0.5         # MHD stability limit
+
+    # Temperature scaling coefficients (from Egedal et al.)
+    T_i_coeff = 2/3          # Ti = (2/3)E_b [keV]
+    T_e_coeff = 0.1          # Te = 0.1E_b [keV]
+
+    # N_rho (a_0/rho_i, where rho_i is ion Larmor radius). Should be 10 - 50
+    N_rho_default = 15
+
+    # NBI efficiency
+    ETA_ABS = 0.9*0.97       # Absorption efficiency, incl. 2*FWHM
+    NBI_EFFICIENCY = ETA_ABS
+
+    # Grid lifetime and capacity factor parameters
+    d_grid = 3.0             # Grid erosion thickness limit [mm]
+    t_replace = 2.5          # Replacement downtime [months]
+    eta_duty = 7.0/7.0       # Weekly duty cycle (6 days/week)
+    sigma_x_beam = 4.3       # Horizontal Gaussian beam width [cm]
+    sigma_y_beam = 10.77     # Vertical Gaussian beam width [cm]
+    num_grids = 16            # Number of grids to spread power over
+
+    # Beam Axis
+    E_b_min = 0.2            # Minimum beam energy [100 keV units]
+    E_b_max = 1.2            # Maximum beam energy [100 keV units]
+
+    # Density axis
+    n_20_min = 1   # Minimum density [1e20 m^-3]
+
+    # Practical engineering limit
+    min_a0 = 0.1                # Minimum minor radius [m]
+    min_L = 3.                  # Minimum length so everythin fits
+    qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
+    max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
+    max_nbi_current = 10000    #  JET deuterium current [A]
+
+    # Grid resolution
+    n_grid_points = 500      # Number of grid points (higher = smoother but slower)
+
+    # Q factor contour levels
+    Q_levels = np.array([
+    ])
+
+    # Neutron wall loading (NWL) levels and requirement
+    min_NWL = 0.1 # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
+    max_NWL = 3.5
+    NWL_background = np.linspace(min_NWL, max_NWL, 25)  # Fine resolution for smooth background
+    NWL_levels = np.array(np.arange(min_NWL, 3.0, 0.2))  # Clean contour lines
+    #NWL_levels = np.array([])
+
+    # Fusion power background for POPCON
+    max_P_fus = 100
+    P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
+
+    # Revenue per volume background for POPCON [$/yr/m³]
+    max_rev_per_vol = 5e9  # $20M/yr/m³
+    min_rev_per_vol = 0
+    Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
+
+    # Minor radius contour levels [m]
+    #a0_levels = np.array(np.linspace(0, 0.25, 25))
+    a0_levels = np.array([])
+
+    # P_fus contour levels (no capacity factor adjusted) [MW]
+    P_fus_levels = np.array(np.arange(0, 7, 1))
+    #P_fus_levels = np.array([])
+
+    # ⟨P_fus⟩ contour levels (capacity factor adjusted) [MW]
+    P_fus_avg_levels = np.array([])
+
+    # NBI power contour levels [MW]
+    P_NBI_levels = np.array(np.arange(10, 35, 5))
+    #P_NBI_levels = np.array([])
+
+    # On-axis field contour levels [T]
+    B_0_levels = np.array([0])
+
+    # Beta contour levels
+    beta_levels = np.array([])
+
+    # Loss coefficient contour levels [s]
+    C_levels = np.array([])
+
+    # Mirror ratio contour levels
+    R_M_levels = np.array([])
+
+    # Vortex stabilization applied voltage contours
+    voltage_levels = np.array([])
+
+    # Max Mirror ratio for vortex stabilization contour levels
+    max_R_M_vortex_levels = np.array([])
+
+    # Collisionality contour levels
+    nu_levels = np.array([])
+
+    # Capacity factor contour levels
+    CF_levels = np.array([])
+
+    # End-plug magnetic field levels
+    Bw_levels = np.array([])
+
+    # End-plug radius levels
+    a_w_levels = np.array([])
+
+    # Heat flux contour levels
+    q_w_levels = np.array([])
+
+    # Volume contour levels [m³]
+    #V_levels = np.array(np.arange(0, 0.4, 0.05))
+    V_levels = np.array([])
+
+    # test_points_list = [(0.40, 2.35), 
+    #                     (0.4737, 2.102), 
+    #                     (0.4737, 2.17), 
+    #                     (0.55, 2.03), 
+    #                     (0.6, 1.94), 
+    #                     (0.70, 1.79),
+    # ]
+    test_points_list = [(0.5747, 2.71434)]
+
+    figures_dir = Path(__file__).parent / 'figures'
+    figures_dir.mkdir(exist_ok=True)
+
+    # Figure settings
+    figure_dpi = 300
+    figure_size = (11, 8)

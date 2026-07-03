@@ -22,7 +22,7 @@ from n20_Eb_inputs import (
     beta_c_default,
     T_i_coeff,
     T_e_coeff,
-    N_rho,
+    N_rho_default,
     E_b_min,
     E_b_max,
     n_20_min,
@@ -66,7 +66,7 @@ from n20_Eb_inputs import (
     max_nbi_power_ftop,
 )
 
-def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default):
+def create_popcon(B_central, B_max=B_max_default, beta_c=beta_c_default, N_rho=N_rho_default):
     """
     Creates n20 vs Eb POPCON for B0, Bm and returns the optimal 
     Rev/Vol and corresponding values of n20 and Eb

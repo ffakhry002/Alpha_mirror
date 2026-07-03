@@ -17,7 +17,7 @@ from n20_Eb_inputs import (
     beta_c_default,
     T_i_coeff,
     T_e_coeff,
-    N_rho,
+    N_rho_default,
     E_b_min,
     E_b_max,
     n_20_min,
@@ -69,6 +69,15 @@ def add_label_outline(clabels, linewidth=2, foreground='k'):
         txt.set_path_effects([
             pe.withStroke(linewidth=linewidth, foreground=foreground)
         ])
+
+def create_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, N_rho=N_rho_default):
+    pass
+
+def test_popcon_points():
+    pass
+
+def plot_popcon():
+    pass
 
 def create_full_popcon(B_max=B_max_default, B_central=B_central_default, beta_c=beta_c_default, test_points_list=test_points_list):
     """Create full POPCON plot with beam-target fusion physics using frustum geometry"""
