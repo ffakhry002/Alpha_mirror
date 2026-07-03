@@ -64,8 +64,9 @@ class Popcon():
         self.end_plate_voltage = None  # ... Required voltage of end plates for vortex stabilization [V]
         self.B_w = None            # Min limit of magnetic field at end plate [T]
         self.q_w = None            # Heat flux at end plates [MW/m^2]
+        self.invalid = None        # Mask of all points that violate constraints
+        self.invalid_dict = None   # Dictionary containing masks for each constraint
         
-
     
     def create_popcon(self):
         """
@@ -222,8 +223,8 @@ class Popcon():
         self.a_w = eqn.calculate_a_w(self.a_0_min, self.B_0_grid, self.B_w)
 
         # Create masks for different regions
-        mask_beta = self.n_20_grid > n_20_beta_limit
-        mask_heat_flux = self.q_w >= 5
+        mask_high_beta = self.n_20_grid > n_20_beta_limit
+        mask_high_heat_flux = self.q_w >= 5
         mask_low_NWL = self.NWL < Params.min_NWL
         #mask_nbi_current_limit = I_NBI_required > max_nbi_current
 
@@ -243,28 +244,25 @@ class Popcon():
         print(f"Bw_max_limit (B_max/74): {Bw_max_limit:.3f} T")
         print(f"Points with Bw > B_max/74 (invalid): {np.sum(mask_Bw_invalid)}")
 
-        mask_gray = mask_beta | mask_heat_flux | mask_ecrh_cutoff
-        mask_black = np.zeros_like(mask_gray, dtype=bool)
-        mask_white = (~mask_gray) & mask_low_NWL
-
-        # NEW: Add Bw invalid region as a separate hatched region
-        mask_Bw_display = mask_Bw_invalid & (~mask_gray)  # Only show where not already gray
+        self.invalid = mask_high_beta | mask_high_heat_flux | mask_ecrh_cutoff | mask_Bw_invalid
+        self.invalid_dict = {
+            'high_beta': mask_high_beta,
+            'high_heat_flux': mask_high_heat_flux,
+            'ecrh_cutoff': mask_ecrh_cutoff,
+            'Bw_invalid': mask_Bw_invalid,
+        }
 
         # Fill regions
         fig, ax = plt.subplots(figsize=Params.figure_size)
-        ax.contourf(self.E_b100_grid, self.n_20_grid, mask_gray.astype(int),
+        ax.contourf(self.E_b100_grid, self.n_20_grid, self.invalid.astype(int),
                     levels=[0.5, 1.5], colors=['lightgray'], alpha=0.8)
-
-        # NEW: Fill Bw invalid region with hatching (different color to distinguish)
-        ax.contourf(self.E_b100_grid, self.n_20_grid, mask_Bw_display.astype(int),
-                    levels=[0.5, 1.5], colors=['darkgray'], alpha=0.6, hatches=['//'])
 
         # ===========================================================================
         # CHANGED: Plot P_fus as background instead of Revenue/Volume
         # CHANGED AGAIN: Plot Rev/Volume as background instead of Pfus
         # ===========================================================================
         P_fus_valid = self.P_fus.copy()
-        P_fus_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        P_fus_valid[self.invalid] = np.nan
 
         # Create P_fus background levels with max at 10 MW
         max_P_fus_background = 25.0  # MW
@@ -280,7 +278,7 @@ class Popcon():
 
         # Also prepare NWL for contour lines (not background)
         NWL_valid = self.NWL.copy()
-        NWL_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        NWL_valid[self.invalid] = np.nan
 
         # Beta limit line
         ax.plot(E_b100, n_20_beta_limit[0, :], 'purple', linewidth=4, zorder=5,
@@ -299,7 +297,7 @@ class Popcon():
 
         # a₀ contours
         a_0_min_valid = self.a_0_min.copy()
-        a_0_min_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        a_0_min_valid[self.invalid] = np.nan
 
         CS = ax.contour(self.E_b100_grid, self.n_20_grid, a_0_min_valid,
                         levels=Params.a0_levels, colors='pink', linewidths=1.5, alpha=0.9)
@@ -310,7 +308,7 @@ class Popcon():
 
         # Q contour lines
         Q_valid = self.Q_phy.copy()
-        Q_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+        Q_valid[self.invalid] = np.nan
 
         CS_Q = ax.contour(self.E_b100_grid, self.n_20_grid, Q_valid,
                         levels=Params.Q_levels, colors='cyan', linewidths=1.5,
@@ -320,7 +318,7 @@ class Popcon():
         # P_fus contours (no capacity factor adjustment)
         if len(Params.P_fus_levels) > 0:
             P_fus_valid = self.P_fus.copy()
-            P_fus_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            P_fus_valid[self.invalid] = np.nan
             CS_Pfus = ax.contour(self.E_b100_grid, self.n_20_grid, P_fus_valid,
                                 levels=Params.P_fus_levels, colors='tan', linewidths=2.5,
                                 alpha=0.9, linestyles='-')
@@ -332,7 +330,7 @@ class Popcon():
         # ⟨P_fus⟩ contours (capacity factor adjusted fusion power)
         if len(Params.P_fus_avg_levels) > 0:
             P_fus_avg_valid = self.P_fus_avg.copy()
-            P_fus_avg_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            P_fus_avg_valid[self.invalid] = np.nan
 
             CS_Pfus_avg = ax.contour(self.E_b100_grid, self.n_20_grid, P_fus_avg_valid,
                                 levels=Params.P_fus_avg_levels, colors='cyan', linewidths=2.0,
@@ -355,7 +353,7 @@ class Popcon():
         # B₀ contours
         if len(Params.B_0_levels) > 0:
             B_0_valid = self.B_0_grid.copy()
-            B_0_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            B_0_valid[self.invalid] = np.nan
             CS_B0 = ax.contour(self.E_b100_grid, self.n_20_grid, B_0_valid,
                             levels=Params.B_0_levels, colors='orange', linewidths=1.5,
                             alpha=0.7, linestyles='-')
@@ -364,7 +362,7 @@ class Popcon():
         # P_NBI contours
         if len(Params.P_NBI_levels) > 0:
             P_NBI_valid = self.P_nbi.copy()
-            P_NBI_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            P_NBI_valid[self.invalid] = np.nan
             CS_PNBI = ax.contour(self.E_b100_grid, self.n_20_grid, P_NBI_valid,
                                 levels=Params.P_NBI_levels, colors='red', linewidths=2.5,
                                 alpha=1.0, linestyles='-')
@@ -376,7 +374,7 @@ class Popcon():
         # Beta contours
         if len(Params.beta_levels) > 0:
             beta_valid = self.beta_local.copy()
-            beta_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            beta_valid[self.invalid] = np.nan
             CS_beta = ax.contour(self.E_b100_grid, self.n_20_grid, beta_valid,
                                 levels=Params.beta_levels, colors='orange', linewidths=1.5,
                                 alpha=0.8, linestyles='-.')
@@ -385,7 +383,7 @@ class Popcon():
         # C (Loss Coefficient) contours
         if len(Params.C_levels) > 0:
             C_valid = self.C_loss.copy()
-            C_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            C_valid[self.invalid] = np.nan
             CS_C = ax.contour(self.E_b100_grid, self.n_20_grid, C_valid,
                             levels=Params.C_levels, colors='brown', linewidths=1.5,
                             alpha=0.8, linestyles=':')
@@ -394,7 +392,7 @@ class Popcon():
         # R_M (Mirror Ratio) contours - diamagnetic
         if len(Params.R_M_levels) > 0:
             R_M_valid = self.R_M_dmag.copy()
-            R_M_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            R_M_valid[self.invalid] = np.nan
             CS_RM = ax.contour(self.E_b100_grid, self.n_20_grid, R_M_valid,
                             levels=Params.R_M_levels, colors='lime', linewidths=2,
                             alpha=0.8, linestyles='--')
@@ -402,7 +400,7 @@ class Popcon():
 
         # Heat flux limit contour
         q_w_valid = self.q_w.copy()
-        q_w_valid[mask_beta | mask_black | mask_white] = np.nan
+        q_w_valid[mask_high_beta] = np.nan
         ax.contour(self.E_b100_grid, self.n_20_grid, q_w_valid,
                 levels=[5], colors=['tab:orange'], linewidths=5, linestyles='-', zorder=4)
         ax.plot([], [], color='tab:orange', linewidth=3, linestyle='-',
@@ -418,7 +416,7 @@ class Popcon():
         # End-plug magnetic field levels
         if len(Params.Bw_levels) > 0:
             Bw_valid = Bw.copy()
-            Bw_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            Bw_valid[self.invalid] = np.nan
             CS_BW = ax.contour(self.E_b100_grid, self.n_20_grid, Bw_valid,
                             levels=Params.Bw_levels, colors='lime', linewidths=2,
                             alpha=1.0, linestyles='-')
@@ -426,7 +424,7 @@ class Popcon():
 
         if len(Params.a_w_levels) > 0:
             a_w_valid = a_w.copy()
-            a_w_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            a_w_valid[self.invalid] = np.nan
             CS_AW = ax.contour(self.E_b100_grid, self.n_20_grid, a_w_valid,
                             levels=Params.a_w_levels, colors='magenta', linewidths=2,
                             alpha=1.0, linestyles='-')
@@ -435,7 +433,7 @@ class Popcon():
         # Max R_M contours for vortex stabilization
         if len(Params.max_R_M_vortex_levels) > 0:
             max_R_M_vortex_valid = max_R_M_vortex.copy()
-            max_R_M_vortex_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            max_R_M_vortex_valid[self.invalid] = np.nan
             CS_RM = ax.contour(self.E_b100_grid, self.n_20_grid, max_R_M_vortex_valid,
                             levels=Params.max_R_M_vortex_levels, colors='magenta', linewidths=2,
                             alpha=0.8, linestyles='-')
@@ -444,7 +442,7 @@ class Popcon():
         # end plate voltage contours
         if len(Params.voltage_levels) > 0:
             voltage_valid = self.end_plate_voltage.copy()
-            voltage_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            voltage_valid[self.invalid] = np.nan
             CS_V = ax.contour(self.E_b100_grid, self.n_20_grid, voltage_valid,
                             levels=Params.voltage_levels, colors='#a0a0a0', linewidths=3,
                             alpha=1.0, linestyles='-')
@@ -452,8 +450,8 @@ class Popcon():
 
         # Collisionality contours
         if len(Params.nu_levels) > 0:
-            nu_valid = collisionality.copy()
-            nu_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            nu_valid = self.collisionality.copy()
+            nu_valid[self.invalid] = np.nan
             CS_NU = ax.contour(self.E_b100_grid, self.n_20_grid, nu_valid,
                             levels=Params.nu_levels, colors='tab:orange', linewidths=3,
                             alpha=0.8, linestyles='-')
@@ -462,7 +460,7 @@ class Popcon():
         # Capacity factor contours
         if len(Params.CF_levels) > 0:
             CF_valid = self.CF.copy()
-            CF_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            CF_valid[self.invalid] = np.nan
             CS_CF = ax.contour(self.E_b100_grid, self.n_20_grid, CF_valid,
                             levels=Params.CF_levels, colors='white', linewidths=1.0,
                             alpha=0.9, linestyles='-')
@@ -471,14 +469,14 @@ class Popcon():
         # Volume contours [m³]
         if len(Params.V_levels) > 0:
             V_valid = self.V_plasma.copy()
-            V_valid[mask_gray | mask_black | mask_white | mask_Bw_display] = np.nan
+            V_valid[self.invalid] = np.nan
             CS_V = ax.contour(self.E_b100_grid, self.n_20_grid, V_valid,
                             levels=Params.V_levels, colors='magenta', linewidths=1.5,
                             alpha=0.9, linestyles='-')
             ax.clabel(CS_V, inline=True, fontsize=9, fmt='V=%.1f m³')
 
         # Gray out hard limits
-        ax.contourf(self.E_b100_grid, self.n_20_grid, mask_gray.astype(int),
+        ax.contourf(self.E_b100_grid, self.n_20_grid, self.invalid.astype(int),
             levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
         
         # Text for hard limits
