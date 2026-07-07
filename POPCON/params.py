@@ -66,7 +66,7 @@ class Params():
     P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
 
     # Revenue per volume background for POPCON [$/yr/m³]
-    max_rev_per_vol = 5e9  # $20M/yr/m³
+    max_rev_per_vol = 5.5e9  # $20M/yr/m³
     min_rev_per_vol = 0
     Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
 

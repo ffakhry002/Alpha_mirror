@@ -246,20 +246,6 @@ class Popcon():
             'Bw_invalid': mask_Bw_invalid,
         }
         return self
-    
-    def get_idx_max_rev_per_vol(self, max_pnbi=Params.max_nbi_power_ftop, min_nwl=Params.min_NWL)-> tuple:
-        """
-        Returns the indices of the valid operating point in the POPCON
-        that has the highest revenue per volume. 
-        Can additionally specify a maximum Pnbi and minimum NWL for the selected point
-        """
-        # Find max Rev per volume over the valid region by making invalid points -inf
-        mask_high_pnbi = self.P_nbi > max_pnbi
-        mask_low_nwl = self.NWL < min_nwl
-        mask_valid = ~ (mask_high_pnbi | mask_low_nwl | self.invalid)
-        rev_per_vol_valid = np.where(mask_valid, self.rev_per_vol, -np.inf)
-        i, j = np.unravel_index(np.argmax(rev_per_vol_valid), rev_per_vol_valid.shape)
-        return i, j
 
     def plot_popcon(self, save_fig=True):
         """
