@@ -586,7 +586,18 @@ def calculate_left_hand_cutoff_density(omega, B):
     prefactor = const.epsilon_0 * const.m_e / const.e**2
     return prefactor * (omega**2 + omega*omega_c)
 
-def calculate_max_n20_ecrh(B_0, f_ecrh_ghz=200):
+def calculate_o_mode_cutoff_density(f_ecrh_ghz):
+    """
+    Returns maximum central density [1e20 m^-3]
+    that allows for fundamental O-mode ECRH at freqency f_ecrh_ghz
+    to reach plasma core. Assumes injection is near axial mid-point
+    so no need to worry about higher plasma frequency as sloshing
+    ion turning point
+    """
+    prefactor = const.epsilon_0 * const.m_e / (const.e**2)
+    return prefactor * (2e9*np.pi*f_ecrh_ghz)**2 / 1e20
+
+def calculate_max_n20_ecrh(B_0, f_ecrh_ghz=200, o_mode=True):
     """
     Returns the maximum central density [1e20 m^-3]
     that allows ECRH for the fundamental X-wave at frequency
@@ -595,6 +606,8 @@ def calculate_max_n20_ecrh(B_0, f_ecrh_ghz=200):
     density at sloshing ion turning points to be sqrt(2) factor
     larger than the central density
     """
+    if o_mode:
+        return calculate_o_mode_cutoff_density(f_ecrh_ghz)
     # Check for cutoff at turning point and axial mid-point
     n_cutoff_tp = calculate_left_hand_cutoff_density(2e9*np.pi*f_ecrh_ghz, 2*B_0)
     n_cutoff_mp = calculate_left_hand_cutoff_density(2e9*np.pi*f_ecrh_ghz, B_0)

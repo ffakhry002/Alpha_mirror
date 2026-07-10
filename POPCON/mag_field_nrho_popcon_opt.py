@@ -157,12 +157,21 @@ def make_histograms(df):
         if nrho == 12:
             ax.scatter(22, 5.25,
                     facecolors='none',
+                    edgecolors='orange',
+                    s=240,           # slightly larger than data markers
+                    linewidths=2.5,
+                    marker='s',
+                    zorder=3,
+                    label='Alternate Design')
+        if nrho == 15:
+            ax.scatter(25, 6.0,
+                    facecolors='none',
                     edgecolors='magenta',
                     s=240,           # slightly larger than data markers
                     linewidths=2.5,
                     marker='s',
                     zorder=3,
-                    label='Chosen point')
+                    label='Chosen Design')
 
         #ax.set_xlabel(r'$B_m$ [T]', fontsize=14)
         if i == 0:                              # change 1: ylabel on leftmost panel only
@@ -179,40 +188,6 @@ def make_histograms(df):
     plt.tight_layout()
     plt.show()
     return fig
-
-def make_histograms_old(df):
-    plt.rcParams['font.size'] = 12
-    nrhos = np.unique(df['N_rho'])
-    df['Rev_per_vol_opt'] /= 1e6 # [$/yr/m^3] -> [$M/yr/m^3]
-    fig, axs = plt.subplots(ncols=len(nrhos), nrows=1, figsize=(8,6), sharex=True, sharey=True)
-    B_m_scan = np.unique(df['B_m'])
-    B_0_vac_scan = np.unique(df['B_0_vac'])
-    axs[0].set_yticks(B_0_vac_scan)
-    for nrho, ax in zip(nrhos, axs):
-        df_nrho = df[df['N_rho'] == nrho]
-        pivot = df_nrho.pivot(index='B_0_vac', columns='B_m', values='Rev_per_vol_opt')
-        im = ax.pcolormesh(
-            pivot.columns,
-            pivot.index,
-            pivot.values,
-            cmap='viridis',
-            vmin=1e3,
-            vmax=Params.max_rev_per_vol/1e6,
-        )
-        ax.set_xlabel(r'$B_m$ [T]', fontsize=14)
-        ax.set_ylabel(r'$B_{0,vac}$ [T]', fontsize=14)
-        ax.set_title(r'$N_{\rho} =$ ' + f'{nrho}', fontsize=14)
-        ax.set_xticks(B_m_scan)
-        # Grid aligned with bin edges
-        for edge in bin_edges(B_m_scan):
-            ax.axvline(edge, color='grey', linewidth=0.8, linestyle='-')
-        for edge in bin_edges(B_0_vac_scan):
-            ax.axhline(edge, color='grey', linewidth=0.8, linestyle='-')
-    fig.colorbar(im, ax=axs[-1], label=r'$R/V_p\ [\$\mathrm{M/yr/m^{3}}]$')
-    plt.tight_layout()
-    plt.show()
-    return fig
-
 
 if __name__=="__main__":
     plt.rcParams['font.size'] = 11

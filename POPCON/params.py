@@ -11,7 +11,7 @@ class Params():
 
     # Magnetic field parameters
     B_max_default = 25.0         # Maximum mirror field [T]
-    B_central_default = 6.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+    B_central_default = 6.0    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
     beta_c_default = 0.5         # MHD stability limit
 
     # Temperature scaling coefficients (from Egedal et al.)
@@ -122,7 +122,7 @@ class Params():
     #V_levels = np.array(np.arange(0, 0.4, 0.05))
     V_levels = np.array([])
 
-    test_points_list = [(0.5747, 2.71434)]
+    test_points_list = [(0.53066, 2.7114)]
 
     figures_dir = get_repo_root() / 'figures'
     figures_dir.mkdir(exist_ok=True)

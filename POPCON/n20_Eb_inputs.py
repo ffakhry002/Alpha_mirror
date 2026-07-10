@@ -123,7 +123,7 @@ V_levels = np.array([])
 #                     (0.6, 1.94), 
 #                     (0.70, 1.79),
 # ]
-test_points_list = [(0.5747, 2.71434)]
+test_points_list = [(0.53066, 2.7114)]
 
 figures_dir = Path(__file__).parent / 'figures'
 figures_dir.mkdir(exist_ok=True)

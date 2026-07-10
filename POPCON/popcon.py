@@ -482,8 +482,8 @@ class Popcon():
             levels=[0.5, 1.5], colors=['lightgray'], alpha=1.0)
         
         # Text for hard limits
-        ax.text(1.0, 2.93, 'Beta Limit', fontsize=18, c='purple', rotation=-40, zorder=10)
-        ax.text(0.55, 3.7, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
+        ax.text(1.0, 2.73, 'Beta Limit', fontsize=18, c='purple', rotation=-40, zorder=10)
+        ax.text(0.5, 3.72, 'Heat Flux Limit', fontsize=18, c='tab:orange', rotation=6, zorder=10)
 
         # Test point:
         for Eb, n20 in Params.test_points_list:
@@ -526,7 +526,7 @@ class Popcon():
         #              f'$R_{{M,vac}}$={self.R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
         #              f'Frustum Geometry | Git Hash: {get_git_hash()}',
         #              fontsize=12, weight='bold')
-        ax.set_title(rf'$B_m = {self.B_m:.0f}$ T, $B_0 = {self.B_0_vac:.2f}$ T', fontsize=18)
+        ax.set_title(rf'$B_m = {self.B_m:.0f}$ T, $B_0 = {self.B_0_vac:.0f}$ T', fontsize=18)
         plt.tight_layout()
         if save_fig:
             output_path = Params.figures_dir / 'POPCON_n20_Eb_Frustum.png'
@@ -555,7 +555,7 @@ class Popcon():
             j = np.argmin(np.abs(self.E_b100 - E_b100_target))
             i = np.argmin(np.abs(self.n_20 - n_20_target))
 
-            print(f"{E_b100_target/100:6.0f} {n_20_target:6.2f} {self.rev_per_vol[i,j]/1e6:9.0f}" 
+            print(f"{E_b100_target*100:6.1f} {n_20_target:6.2f} {self.rev_per_vol[i,j]/1e6:9.0f}" 
                   f"{self.CF[i,j]:6.3f} {self.beta_local[i,j]:6.3f} {self.B_0_grid[i,j]:6.3f} "
                   f"{self.R_M_dmag[i,j]:7.2f} {self.a_0_dict['abs'][i,j]:7.4f} {self.a_0_dict['DCLC'][i,j]:7.4f}"
                   f"{self.a_0_dict['N MFP'][i,j]:7.4f} {self.a_0_min[i,j]:7.4f} {self.L_mirror[i,j]:6.2f} "
