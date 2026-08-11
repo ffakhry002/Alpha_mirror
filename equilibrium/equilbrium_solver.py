@@ -126,7 +126,8 @@ def get_nwl_profile(profiles: pd.DataFrame) -> pd.DataFrame:
     """
     S_n = profiles['S_fus'].to_numpy() * 14.1/17.6
     r_wall = profiles['a'] + 0.1*profiles['a'].to_numpy()[0]
-    profiles['nwl'] = S_n * profiles['a']**2 / (2*r_wall)
+    # Assume fusion only happens for r < 0.9*a
+    profiles['nwl'] = S_n * (0.9*profiles['a'])**2 / (2*r_wall)
     return profiles
 
 def get_fusion_power(profiles: pd.DataFrame) -> float:
@@ -134,7 +135,8 @@ def get_fusion_power(profiles: pd.DataFrame) -> float:
     Calculate the total fusion power in the mirror
     """
     # Factor of 2 because profiles stores the half-profiles z > 0
-    return 2*trapezoid(profiles['S_fus']*np.pi*profiles['a']**2, profiles['z'])
+    # Assume fusion only happens for r < 0.9*a
+    return 2*trapezoid(profiles['S_fus']*np.pi*(0.9*profiles['a'])**2, profiles['z'])
 
 def get_number_ions(profiles: pd.DataFrame) -> float:
     """Calculates the total number of DT ions in the plasma"""
@@ -243,7 +245,7 @@ if __name__=='__main__':
     # Constant columns for replicating data
     profiles['E_b_keV'] = E_NBI_keV
     profiles['n0'] = n0
-    #profiles.to_csv('equilibrium/axial_profiles_final_v2.csv', index=False)
+    profiles.to_csv('equilibrium/axial_profiles_update.csv', index=False)
 
     # Plot to show convergence
     # for i, btot in enumerate(each_iteration_Btot):
@@ -299,7 +301,7 @@ if __name__=='__main__':
     axs[1].plot(profiles['z'], profiles['S_fus'], c='b')
     axs[1].set_ylabel('$S_{fus}$ [MW/m$^3$]', fontsize=14)
     axs[1].set_ylim(0, 1.2*np.max(profiles['S_fus']))
-    axs[1].set_yticks(np.arange(0, 60, 20))
+    axs[1].set_yticks(np.arange(0, 100, 20))
     axs[1].set_title('Fusion Power Density', fontsize=16)
     axs[2].plot(profiles['z'], profiles['nwl'], c='r')
     axs[2].set_title('Neutron Wall Loading (Not OpenMC)', fontsize=16)
