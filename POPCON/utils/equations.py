@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d, RegularGridInterpolator
 import scipy.constants as const
 import pandas as pd
 
-from n20_Eb_inputs import min_L
+from POPCON.params import Params
 from POPCON.utils.repo_tools import get_repo_root
 
 # ============================================================================
@@ -333,7 +333,7 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     # From Erick's B(z) and 45deg injection, the length between the turning points
     # is roughly half of the length between the mirror throats. Thus add factor of 4.
     L_plasma = 2*a_0_min**2 / rho_i
-    L_plasma = np.maximum(L_plasma, min_L)
+    L_plasma = np.maximum(L_plasma, Params.min_L)
 
     # Each segment is L/3
     L_segment = L_plasma / 3

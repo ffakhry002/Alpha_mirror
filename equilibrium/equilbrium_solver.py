@@ -10,7 +10,8 @@ import scipy.constants as const
 from scipy.integrate import trapezoid
 
 from equilibrium.axial_profiles import AxialProfiles
-from POPCON.equations import load_dt_reactivity_data, calculate_a0_absorption, calculate_a0_FLR, calculate_loss_coefficient
+from POPCON.params import Params
+import POPCON.utils.equations as eqn
 
 
 def read_vacuum_field(csv: str) -> pd.DataFrame:
@@ -63,7 +64,8 @@ def get_kinetic_profiles(B_profile: pd.DataFrame, theta_NBI: float, E_NBI_keV: f
     """
     # Calculate kinetic profiles from the Egedal22 Sec. 2 distribution function
     R_m_at_min_B, theta_NBI_at_min_B = get_effective_Rm_and_theta_NBI(B_profile, theta_NBI)
-    print(f"Getting axial profiles from Sam's code, R_m = {R_m_at_min_B}")
+    print(f"Getting axial profiles from Sam's code, "
+          f"R_m = {R_m_at_min_B:.2f}, theta_NBI = {theta_NBI_at_min_B:.2f}")
     ap = AxialProfiles(R_m=R_m_at_min_B, theta_NBI=theta_NBI_at_min_B, E_NBI=E_NBI_keV,
                        cache_dir=cache_dir)
     egedal_profiles = ap.get_profiles()
@@ -93,9 +95,13 @@ def add_plasma_radius_profile(profiles: pd.DataFrame, E_NBI_keV, n0) -> pd.DataF
     Adds a column corresponding to the plasma radius from flux conservation
     """
     # Get plasma minor radius at mirror center
-    a0_absorp = calculate_a0_absorption(E_b_100keV=E_NBI_keV/100, n_20=n0/1e20)
-    a0_FLR = calculate_a0_FLR(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0])
-    a0 = max(a0_absorp, a0_FLR)
+    a0_abs = eqn.calculate_a0_absorption(E_b_100keV=E_NBI_keV/100, n_20=n0/1e20)
+    a0_DCLC = eqn.calculate_a0_DCLC(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0])
+    a_0_adiab = eqn.calculate_a0_adiabaticity(E_b_100keV=E_NBI_keV/100, 
+                                              B_0=profiles['B_z'].to_numpy()[0], 
+                                              beta=profiles['beta'].to_numpy()[0])
+    a_0_mfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n0/1e20)
+    a0 = max(a0_abs, a0_DCLC, a_0_adiab, a_0_mfp, Params.min_a0)
     # Calculate a(z) from flux conservation
     B0 = profiles['B_z'].to_numpy()[0]
     profiles['a'] = a0 * np.sqrt(B0 / profiles['B_z'])
@@ -107,7 +113,7 @@ def add_fusion_power_density_profile(profiles: pd.DataFrame, E_NBI_keV) -> pd.Da
     """
     Ti_keV = 2/3 * E_NBI_keV
     E_fus_MJ = 17.6 * const.e # [MeV] -> [MJ]
-    dt_reactivity_interp = load_dt_reactivity_data()
+    dt_reactivity_interp = eqn.load_dt_reactivity_data()
     dt_reactivity = dt_reactivity_interp(Ti_keV)
     profiles['S_fus'] = 0.25*profiles['n']**2 * dt_reactivity * E_fus_MJ
     return profiles
@@ -139,7 +145,7 @@ def get_required_nbi_power(profiles: pd.DataFrame, Rm_vac: float, E_NBI_keV: flo
     Calculate the required NBI power [MW] to supply the density profile
     """
     num_ions = get_number_ions(profiles)
-    loss_coef = calculate_loss_coefficient(E_b_100keV=E_NBI_keV/100, Rm_vac=Rm_vac)
+    loss_coef = eqn.calculate_loss_coefficient(E_b_100keV=E_NBI_keV/100, Rm_vac=Rm_vac)
     tau_p = loss_coef * (E_NBI_keV/100)**(3/2) * np.log10(Rm_vac)/(n0/1e20) # [s]
     E_NBI_MJ = E_NBI_keV/1e3 * const.e
     # Fudge factor of 2, divide by 0.9 to account for absorption loss
@@ -182,10 +188,10 @@ if __name__=='__main__':
     # R_m = 4.0 
     mu_i = 2.5
     theta_NBI = np.pi/4.0 #[rad]
-    E_NBI_keV = 47.4 #[keV]
-    n0 = 2.1e20 # Volume averaged density [m^-3]
+    E_NBI_keV = 56.9 #[keV]
+    n0 = 2.807e20 # Volume averaged density [m^-3]
     max_iterations = 2
-    vacuum_field_fn = 'Mirror-optimization/B_tot_vs_z_3m_final_v2.csv'
+    vacuum_field_fn = 'Mirror-optimization/B_z_vs_z_clipped_22T_design2.csv'
     cache_dir = 'equilibrium/cache'
 
     #  1) Read in vacuum magnetic equilibrium
@@ -210,7 +216,8 @@ if __name__=='__main__':
                                          E_NBI_keV=E_NBI_keV, cache_dir=cache_dir)
         print(profiles)
         
-        # # Get plasma radius as profile
+        # # Get plasma beta and plasma radius as profiles
+        profiles = add_plasma_beta_profile(profiles, vacuum_B)
         profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
         print(profiles)
 
@@ -221,9 +228,8 @@ if __name__=='__main__':
         profiles = normalize_profiles(profiles=profiles, n0=n0, E_NBI_keV=E_NBI_keV)
         #4) normalize profiles via normalization factor n20/<n>
 
-        # 5) Find diamagnetic field
-        profiles = add_plasma_beta_profile(profiles, vacuum_B)
         #profiles['beta_forest'] = 3* profiles['n']/1e20 * E_NBI_keV/100 / vacuum_B['B_z']**2
+        # 5) Update field profile from diamagnetic contribution
         B_tot['B_z'] = vacuum_B['B_z'] * np.sqrt(1 - profiles['beta'])
     each_iteration_Btot.append(B_tot['B_z'].to_numpy())
 
@@ -268,9 +274,10 @@ if __name__=='__main__':
     print(f'Plasma surface area = {get_plasma_surface_area(profiles)} m^2')
     print(f'Wall surface area = {get_wall_surface_area(profiles)} m^2')
 
-    # Tritium current:
+    # Get profiles from .csv with OpenMC result
+    # profiles = pd.read_csv('/Users/henrycw/projects/alpha-mirror/equilibrium/axial_profiles_final_nwl.csv')
 
-    profiles = pd.read_csv('/Users/henrycw/projects/alpha-mirror/equilibrium/axial_profiles_final_nwl.csv')
+    # Profile for -z is just reflection about z=0
     profiles_left = profiles.copy()
     profiles_left['z'] = -1*profiles_left['z']
     profiles = pd.concat([profiles, profiles_left]).sort_values(by='z')
@@ -295,7 +302,7 @@ if __name__=='__main__':
     axs[1].set_yticks(np.arange(0, 60, 20))
     axs[1].set_title('Fusion Power Density', fontsize=16)
     axs[2].plot(profiles['z'], profiles['nwl'], c='r')
-    axs[2].set_title('Neutron Wall Loading (OpenMC)', fontsize=16)
+    axs[2].set_title('Neutron Wall Loading (Not OpenMC)', fontsize=16)
     axs[2].set_ylabel("MW/m$^2$", fontsize=14)
     axs[2].set_yticks(np.arange(0, 2.0, 0.5))
     axs[2].axvspan(-1.2, -0.4, color='tab:orange', alpha=0.2, zorder=0)

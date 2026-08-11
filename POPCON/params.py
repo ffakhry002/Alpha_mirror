@@ -3,8 +3,6 @@ Class to store input parameters to the POPCON
 """
 
 import numpy as np
-from pathlib import Path
-
 from POPCON.utils.repo_tools import get_repo_root
 
 class Params():
