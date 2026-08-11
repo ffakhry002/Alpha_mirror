@@ -55,6 +55,8 @@ def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
         'a_0_limit_opt': [np.nan],
         'L_mirror_opt': [np.nan],
         'V_plasma_opt': [np.nan],
+        'a_w_opt': [np.nan],
+        'B_w_opt': [np.nan],
         'q_w_opt': [np.nan]
     })
     if B_m / B_0 < min_rm_vac:
@@ -77,6 +79,8 @@ def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
         'a_0_limit_opt': [popcon.a_0_min_limit[j,k]],
         'L_mirror_opt': [popcon.L_mirror[j,k]],
         'V_plasma_opt': [popcon.V_plasma[j,k]],
+        'a_w_opt': [popcon.a_w[j,k]],
+        'B_w_opt': [popcon.B_w[j,k]],
         'q_w_opt': [popcon.q_w[j,k]]
     })
 
@@ -118,7 +122,7 @@ def make_histograms(df):
 
     vmin = 0
     vmax = Params.max_rev_per_vol / 1e6
-    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    norm = plt.Normalize(vmin=4000, vmax=vmax)
     cmap = plt.cm.viridis
 
     axs[0].set_yticks(B_0_vac_scan[0::2])
@@ -193,7 +197,7 @@ if __name__=="__main__":
     plt.rcParams['font.size'] = 11
     B_0_scan = np.arange(2.5, 7.25, 0.25)
     B_m_scan = np.arange(22, 31, 3)
-    N_rho_scan = np.array([12, 15, 18])
+    N_rho_scan = np.array([10, 12, 15, 18])
     df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, bypass=False)
     fig = make_histograms(df)
     fig.savefig('mag_field_nrho_popcon_optimization.png')

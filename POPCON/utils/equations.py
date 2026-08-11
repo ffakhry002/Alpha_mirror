@@ -810,12 +810,29 @@ def calculate_average_fusion_power(P_fusion_MW, t_grid_hrs,
 # END PLUG HEAT FLUX QUANTITIES
 # ============================================================================
 
-def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=1):
+def calculate_Bw_curv(E_b_100keV, B0, a_0_min, Nwall=np.sqrt(5)):
     """
     Returns the magnetic field strength [T] at the end-plug wall based on
     flux expansion and constraints on adiabadicity
     """
     return 7.3e-3 * Nwall**2 * E_b_100keV / (a_0_min**2 * B0)
+
+def calculate_Bw_gentle_flare(E_b_100keV, Nwall=np.sqrt(5)):
+    """
+    Returns the magnetic field strength [T] at the end-plug wall based on
+    flux expansion and constraints on adiabadicity
+    """
+    Lexp_max = 3
+    E_b_J = 1e5*E_b_100keV*const.e
+    return Nwall**2 *np.sqrt(7/3*E_b_J * 2.5*const.atomic_mass)/(const.e*Lexp_max)
+
+def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=np.sqrt(5)):
+    """
+    Returns the magnetic field strength [T] at the end-plug wall based on
+    flux expansion and constraints on adiabadicity
+    """
+    return np.minimum(calculate_Bw_curv(E_b_100keV, B0, a_0_min, Nwall=Nwall),
+                        calculate_Bw_gentle_flare(E_b_100keV, Nwall=np.sqrt(5)))
 
 def calculate_a_w(a_0_min, B0, Bw):
     """

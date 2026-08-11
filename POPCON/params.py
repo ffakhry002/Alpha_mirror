@@ -10,8 +10,8 @@ from POPCON.utils.repo_tools import get_repo_root
 class Params():
 
     # Magnetic field parameters
-    B_max_default = 25.0         # Maximum mirror field [T]
-    B_central_default = 6.0    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+    B_max_default = 22.0         # Maximum mirror field [T]
+    B_central_default = 5.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
     beta_c_default = 0.5         # MHD stability limit
 
     # Temperature scaling coefficients (from Egedal et al.)
@@ -19,7 +19,7 @@ class Params():
     T_e_coeff = 0.1          # Te = 0.1E_b [keV]
 
     # N_rho (a_0/rho_i, where rho_i is ion Larmor radius). Should be 10 - 50
-    N_rho_default = 15
+    N_rho_default = 12
 
     # NBI efficiency
     ETA_ABS = 0.9*0.97       # Absorption efficiency, incl. 2*FWHM
@@ -122,7 +122,7 @@ class Params():
     #V_levels = np.array(np.arange(0, 0.4, 0.05))
     V_levels = np.array([])
 
-    test_points_list = [(0.53066, 2.7114)]
+    test_points_list = [(0.57, 2.8)]
 
     figures_dir = get_repo_root() / 'figures'
     figures_dir.mkdir(exist_ok=True)

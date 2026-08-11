@@ -526,7 +526,7 @@ class Popcon():
         #              f'$R_{{M,vac}}$={self.R_M_vac:.2f}, $\\beta_c$={beta_c})\n'
         #              f'Frustum Geometry | Git Hash: {get_git_hash()}',
         #              fontsize=12, weight='bold')
-        ax.set_title(rf'$B_m = {self.B_m:.0f}$ T, $B_0 = {self.B_0_vac:.0f}$ T', fontsize=18)
+        ax.set_title(rf'$B_m = {self.B_m:.0f}$ T, $B_0 = {self.B_0_vac:.2f}$ T', fontsize=18)
         plt.tight_layout()
         if save_fig:
             output_path = Params.figures_dir / 'POPCON_n20_Eb_Frustum.png'

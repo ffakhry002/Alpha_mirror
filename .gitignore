@@ -1,5 +1,9 @@
 # Ignore figures and __pycache__ directories
 POPCON/figures
 POPCON/__pycache__
+equilibrium/__pycache__
+equilibrium/cache
+equilibrium/*.csv
 Rm*.csv
+mag_field*.csv
 *.png
