@@ -239,7 +239,7 @@ if __name__=='__main__':
     # Get plasma radius
     profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
     profiles = add_fusion_power_density_profile(profiles, E_NBI_keV=E_NBI_keV)
-    profiles = get_nwl_profile(profiles)
+    #profiles = get_nwl_profile(profiles)
     profiles['B_z_vac'] = vacuum_B['B_z']
 
     # Constant columns for replicating data
@@ -289,9 +289,9 @@ if __name__=='__main__':
     for ax in axs:
         ax.tick_params(axis='both', labelsize=13)
     axs[0].plot(profiles['z'], profiles['B_z'], c='k')
-    axs[0].set_ylim(0, 30)
+    axs[0].set_ylim(0, 25)
     axs[0].set_ylabel('$B_z$ [T]', fontsize=14)
-    axs[0].set_yticks(np.arange(0, 40, 10))
+    axs[0].set_yticks(np.arange(0, 30, 5))
     axs[0].set_title('Net Axial Magnetic Field', fontsize=16)
     # axs[1].plot(profiles['z'], profiles['a'], c='k')
     # axs[1].set_ylim(0, 1.2*np.max(profiles['a']))
@@ -311,6 +311,8 @@ if __name__=='__main__':
     axs[2].axvspan(-0.4, 1.2, color='tab:purple', alpha=0.2, zorder=0)
     axs[-1].set_xlabel('Z [m]', fontsize=14)
     axs[0].set_xlim(-1.5, 1.5)
+    for ax in axs:
+        ax.grid()
     plt.tight_layout()
     plt.savefig('equilibrium_profiles.png')
     plt.show()
