@@ -150,8 +150,8 @@ def get_required_nbi_power(profiles: pd.DataFrame, Rm_vac: float, E_NBI_keV: flo
     loss_coef = eqn.calculate_loss_coefficient(E_b_100keV=E_NBI_keV/100, Rm_vac=Rm_vac)
     tau_p = loss_coef * (E_NBI_keV/100)**(3/2) * np.log10(Rm_vac)/(n0/1e20) # [s]
     E_NBI_MJ = E_NBI_keV/1e3 * const.e
-    # Fudge factor of 2, divide by 0.9 to account for absorption loss
-    return 2* E_NBI_MJ * num_ions / tau_p / 0.9
+    # No Fudge factor of 2, divide by 0.9 to account for absorption loss
+    return E_NBI_MJ * num_ions / tau_p / 0.9
 
 def get_tritium_mass_in_plasma(profiles: pd.DataFrame) -> float:
     """
@@ -193,7 +193,7 @@ if __name__=='__main__':
     E_NBI_keV = 56.9 #[keV]
     n0 = 2.807e20 # Volume averaged density [m^-3]
     max_iterations = 2
-    vacuum_field_fn = 'Mirror-optimization/B_z_vs_z_clipped_22T_design2.csv'
+    vacuum_field_fn = 'Mirror-optimization/field_profile_22T_design3.csv'
     cache_dir = 'equilibrium/cache'
 
     #  1) Read in vacuum magnetic equilibrium
@@ -222,8 +222,6 @@ if __name__=='__main__':
         profiles = add_plasma_beta_profile(profiles, vacuum_B)
         profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
         print(profiles)
-
-        # # TODO: Add <sigma v> as profile
 
         # 4) Normalize profiles based on n0. Later normalize based on Pnbi
         #profiles = normalize_profiles_new(profiles=profiles, n0 = n0)
@@ -303,7 +301,7 @@ if __name__=='__main__':
     axs[1].set_ylim(0, 1.2*np.max(profiles['S_fus']))
     axs[1].set_yticks(np.arange(0, 100, 20))
     axs[1].set_title('Fusion Power Density', fontsize=16)
-    axs[2].plot(profiles['z'], profiles['nwl'], c='r')
+    #axs[2].plot(profiles['z'], profiles['nwl'], c='r')
     axs[2].set_title('Neutron Wall Loading (Not OpenMC)', fontsize=16)
     axs[2].set_ylabel("MW/m$^2$", fontsize=14)
     axs[2].set_yticks(np.arange(0, 2.0, 0.5))

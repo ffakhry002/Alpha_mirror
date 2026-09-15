@@ -4,18 +4,15 @@ above a provided NWL and below a provided Pnbi for several Rm
 at fixed Bm and injection angle
 """
 
+import argparse
 import os
 from multiprocessing import Pool
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import matplotlib.patheffects as pe
 import pandas as pd
-from pathlib import Path
 
 # Import from our modular files
-import POPCON.utils.equations as eqn
 from POPCON.popcon import Popcon
 from POPCON.params import Params
 
@@ -85,9 +82,7 @@ def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
     })
 
 
-def popcon_scan(B_0_scan, B_m_scan, N_rho_scan, bypass=False):
-    fn = f'mag_field_nrho_popcon_optimization.csv'
-    print(fn)
+def popcon_scan(B_0_scan, B_m_scan, N_rho_scan, fn, bypass=False):
     if os.path.exists(fn) and not bypass:
         print(f"POPCON scan already exists.\nReading results from {fn}")
         df = pd.read_csv(fn)
@@ -102,6 +97,7 @@ def popcon_scan(B_0_scan, B_m_scan, N_rho_scan, bypass=False):
         dfs = pool.starmap(get_popcon_df, scan)
     result_df = pd.concat(dfs)
     result_df = result_df.sort_values(by=['N_rho', 'B_m', 'B_0_vac'])
+    print(f"Saving results to {fn}")
     result_df.to_csv(fn, index=False)
     return result_df
 
@@ -122,7 +118,7 @@ def make_histograms(df):
 
     vmin = 0
     vmax = Params.max_rev_per_vol / 1e6
-    norm = plt.Normalize(vmin=4000, vmax=vmax)
+    norm = plt.Normalize(vmin=0, vmax=vmax)
     cmap = plt.cm.viridis
 
     axs[0].set_yticks(B_0_vac_scan[0::2])
@@ -187,17 +183,24 @@ def make_histograms(df):
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=axs[-1], label=r'$R/V_p\ [\$\mathrm{M/yr/m^{3}}]$')
-    cbar.set_ticks(np.arange(0, 6e3, 500))
+    cbar.set_ticks(np.arange(0, 5.5e3, 500))
 
     plt.tight_layout()
     plt.show()
     return fig
 
 if __name__=="__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--filename', type=str, 
+                        default='mag_field_nrho_popcon_optimization.png',
+                        help='Output filename / cached results for the plot')
+    args = parser.parse_args()
     plt.rcParams['font.size'] = 11
     B_0_scan = np.arange(2.5, 7.25, 0.25)
     B_m_scan = np.arange(22, 31, 3)
     N_rho_scan = np.array([10, 12, 15, 18])
-    df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, bypass=False)
+    df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, args.filename, bypass=False)
     fig = make_histograms(df)
-    fig.savefig('mag_field_nrho_popcon_optimization.png')
+    fn_png = f"{args.filename[:-3]}png"
+    print(f"Saving figure to {fn_png}")
+    fig.savefig(fn_png)

@@ -40,7 +40,7 @@ class Params():
 
     # Practical engineering limit
     min_a0 = 0.1                # Minimum minor radius [m]
-    min_L = 3.                  # Minimum length so everythin fits
+    min_L = 5.                  # Minimum length so everythin fits
     qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
     max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
     max_nbi_current = 10000    #  JET deuterium current [A]
@@ -64,7 +64,7 @@ class Params():
     P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
 
     # Revenue per volume background for POPCON [$/yr/m³]
-    max_rev_per_vol = 5.5e9  # $20M/yr/m³
+    max_rev_per_vol = 4e9  # $20M/yr/m³
     min_rev_per_vol = 0
     Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
 
@@ -120,7 +120,7 @@ class Params():
     #V_levels = np.array(np.arange(0, 0.4, 0.05))
     V_levels = np.array([])
 
-    test_points_list = [(0.57, 2.8)]
+    test_points_list = [(0.593, 2.429)]
 
     figures_dir = get_repo_root() / 'figures'
     figures_dir.mkdir(exist_ok=True)
