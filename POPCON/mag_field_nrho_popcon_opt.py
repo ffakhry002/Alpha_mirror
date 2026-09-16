@@ -33,7 +33,7 @@ def get_idx_max_rev_per_vol(popcon, max_pnbi=Params.max_nbi_power_ftop, min_nwl=
         i, j = np.unravel_index(np.argmax(rev_per_vol_valid), rev_per_vol_valid.shape)
         return i, j
 
-def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
+def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4., max_pnbi=15., min_nwl=0.5):
     """
     Returns dictionary of params of interest associated with popcon
     If no valid solution exists, dict contains NaN values
@@ -47,6 +47,7 @@ def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
         'n_20_opt': [np.nan],
         'E_b100_opt': [np.nan],
         'P_nbi_opt': [np.nan],
+        'P_fus_opt': [np.nan],
         'NWL_at_opt_Rev_per_vol': [np.nan],
         'a_0_opt': [np.nan],
         'a_0_limit_opt': [np.nan],
@@ -60,7 +61,7 @@ def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
         return nan_df
     popcon = Popcon(B_0_vac=B_0, B_m=B_m, N_rho=N_rho)
     popcon.create_popcon()
-    j, k = get_idx_max_rev_per_vol(popcon, max_pnbi=15., min_nwl=0.5)
+    j, k = get_idx_max_rev_per_vol(popcon, max_pnbi=max_pnbi, min_nwl=min_nwl)
     if np.isnan(j):
         return nan_df
     return pd.DataFrame({
@@ -71,6 +72,7 @@ def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4):
         'n_20_opt': [popcon.n_20_grid[j,k]],
         'E_b100_opt': [popcon.E_b100_grid[j,k]],
         'P_nbi_opt': [popcon.P_nbi[j,k]],
+        'P_fus_opt': [popcon.P_fus[j,k]],
         'NWL_at_opt_Rev_per_vol': [popcon.NWL[j,k]],
         'a_0_opt': [popcon.a_0_min[j,k]],
         'a_0_limit_opt': [popcon.a_0_min_limit[j,k]],

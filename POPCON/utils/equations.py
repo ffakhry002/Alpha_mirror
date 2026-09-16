@@ -810,29 +810,40 @@ def calculate_average_fusion_power(P_fusion_MW, t_grid_hrs,
 # END PLUG HEAT FLUX QUANTITIES
 # ============================================================================
 
-def calculate_Bw_curv(E_b_100keV, B0, a_0_min, Nwall=np.sqrt(5)):
+def calculate_Bw_curv(E_b_100keV, B0, a_0_min, epsilon):
     """
     Returns the magnetic field strength [T] at the end-plug wall based on
     flux expansion and constraints on adiabadicity
+    Params:
+    - E_b_100keV: The neutral beam energy [100 keV]
+    - B0: Central (z=0) on axis magnetic field
+    - a_0_min: minimum radius at mirror center (z=0)
+    - epsilon: ratio of gyrofrequency at end wall to rate of magnetic field change
+     from lost ions' point of view (assumes lost ion has energy E_b_100keV)
     """
-    return 7.3e-3 * Nwall**2 * E_b_100keV / (a_0_min**2 * B0)
+    return 7.3e-3 * E_b_100keV / (a_0_min**2 * B0 * epsilon)
 
-def calculate_Bw_gentle_flare(E_b_100keV, Nwall=np.sqrt(5)):
+def calculate_Bw_gentle_flare(E_b_100keV, max_L_exp, epsilon):
     """
     Returns the magnetic field strength [T] at the end-plug wall based on
     flux expansion and constraints on adiabadicity
     """
-    Lexp_max = 3
     E_b_J = 1e5*E_b_100keV*const.e
-    return Nwall**2 *np.sqrt(7/3*E_b_J * 2.5*const.atomic_mass)/(const.e*Lexp_max)
+    return np.sqrt(7/3*E_b_J * 2.5*const.atomic_mass)/(const.e*max_L_exp * epsilon)
 
-def calculate_Bw(E_b_100keV, B0, a_0_min, Nwall=np.sqrt(5)):
+def calculate_Bw(E_b_100keV, B0, a_0_min, max_L_exp, epsilon):
     """
     Returns the magnetic field strength [T] at the end-plug wall based on
     flux expansion and constraints on adiabadicity
     """
-    return np.minimum(calculate_Bw_curv(E_b_100keV, B0, a_0_min, Nwall=Nwall),
-                        calculate_Bw_gentle_flare(E_b_100keV, Nwall=np.sqrt(5)))
+    return np.minimum(calculate_Bw_curv(E_b_100keV=E_b_100keV, 
+                                        B0=B0, 
+                                        a_0_min=a_0_min, 
+                                        epsilon=epsilon),
+                        calculate_Bw_gentle_flare(E_b_100keV, 
+                                                  max_L_exp=max_L_exp, 
+                                                  epsilon=epsilon)
+                                                  )
 
 def calculate_a_w(a_0_min, B0, Bw):
     """

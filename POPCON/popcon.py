@@ -215,7 +215,7 @@ class Popcon():
         self.max_R_M_vortex = eqn.calculate_max_mirror_ratio_vortex(self.E_b100_grid, self.B_0_grid, self.a_0_min, self.L_mirror)
 
         # Calculate end plate params
-        self.B_w = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min)
+        self.B_w = eqn.calculate_Bw(self.E_b100_grid, self.B_0_grid, self.a_0_min, Params.max_L_exp, Params.epsilon)
         self.q_w = eqn.calculate_heat_flux(self.P_nbi, self.Q_phy, self.a_0_min, self.B_0_grid, self.B_w)
         self.a_w = eqn.calculate_a_w(self.a_0_min, self.B_0_grid, self.B_w)
         self.ion_flux_target = eqn.calculate_ion_flux_on_target(P_nbi=self.P_nbi, E_b_100keV=self.E_b100_grid, a_w=self.a_w)

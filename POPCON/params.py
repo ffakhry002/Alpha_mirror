@@ -45,6 +45,10 @@ class Params():
     max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
     max_nbi_current = 10000    #  JET deuterium current [A]
 
+    # Flux expansion cell parameters
+    max_L_exp = 5. # Maximum length of flux expansion cells
+    epsilon = 0.2 # Ratio of rate of change of magnetic field from lost ion's point of view to gyro-frequency in expander cell to remain adiabatic
+
     # Grid resolution
     n_grid_points = 500      # Number of grid points (higher = smoother but slower)
 
