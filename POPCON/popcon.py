@@ -130,7 +130,7 @@ class Popcon():
         for i in range(Params.n_grid_points):
             for j in range(Params.n_grid_points):
                 L, Vp, Vf, A = eqn.calculate_plasma_geometry_frustum(
-                    self.a_0_min[i, j], a_0_end[i, j], self.E_b100_grid[i, j], self.B_0_grid[i, j]
+                    self.a_0_min[i, j], a_0_end[i, j], self.E_b100_grid[i, j], self.B_0_grid[i, j], self.N_rho, Params.standoff_rho
                 )
                 self.L_mirror[i, j] = L
                 self.V_plasma[i, j] = Vp
@@ -544,17 +544,18 @@ class Popcon():
             f"{'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} {'a0_nmfp':>7}"
             f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
             f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} "
-            f"{'ion_flux_w':>12} {'ero_rate_w':>8}")
+            f"{'ion_flux_w':>12} {'ero_rate_w':>12} {'r_L':>8} {'a_end':>8}")
         print(f"{'[keV]':>6} {'[e20]':>6} {'[$M/yr/m^3]':>8} {'':>6} {'':>6} {'[T]':>6} {'':>6} {'[m]':>7} {'[m]':>7} {'[m]':>7}"
             f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
-            f"{'[MW/m²]':>6} {'':>5} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>12} {'[mm/yr]':>12}")
+            f"{'[MW/m²]':>6} {'':>5} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>12} {'[mm/yr]':>12} {'cm':>8} {'m:>8'}")
         print("-"*100)
 
         for E_b100_target, n_20_target in test_points:
             # Get j then i due to how np.meshgrid orients the array
             j = np.argmin(np.abs(self.E_b100 - E_b100_target))
             i = np.argmin(np.abs(self.n_20 - n_20_target))
-
+            ion_gyro_rad_cm = eqn.calculate_ion_larmor_radius(self.E_b100_grid[i,j], self.B_0_grid[i,j])*100
+            a_end = eqn.calculate_a0_end(self.a_0_min[i,j], self.B_0_vac, self.B_m)
             print(f"{E_b100_target*100:6.1f} {n_20_target:6.2f} {self.rev_per_vol[i,j]/1e6:9.0f}" 
                   f"{self.CF[i,j]:6.3f} {self.beta_local[i,j]:6.3f} {self.B_0_grid[i,j]:6.3f} "
                   f"{self.R_M_dmag[i,j]:7.2f} {self.a_0_dict['abs'][i,j]:7.4f} {self.a_0_dict['DCLC'][i,j]:7.4f}"
@@ -562,7 +563,7 @@ class Popcon():
                   f"{self.V_plasma[i,j]:7.3f} {self.C_loss[i,j]:7.4f} {self.P_fus[i,j]:7.2f} {self.P_nbi[i,j]:7.2f} "
                   f"{self.NWL[i,j]:6.3f} {self.Q_phy[i,j]:6.3f} {self.a_0_min_limit[i,j]:>6} {self.q_w[i,j]:6.1f}"
                   f"{self.a_w[i,j]:6.3} {self.B_w[i,j]:6.3} {self.ion_flux_target[i,j]/1e20:12.2f}"
-                  f"{self.ero_rate_w[i,j]:7.4f}") 
+                  f"{self.ero_rate_w[i,j]:12.4f} {ion_gyro_rad_cm:8.3f} {a_end:8.5f}") 
         return
 
 if __name__ == "__main__":

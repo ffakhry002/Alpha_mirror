@@ -318,7 +318,7 @@ def get_plasma_volume(a_center, a_end, legnth):
     V_cylinder = np.pi * a_center**2 * legnth
     return V_cylinder + 2*V_frustum
 
-def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
+def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, Nrho, standoff_rho):
     """
     Three-segment geometry: frustum-cylinder-frustum
     Constant standoff: 0.1 × a_0_min absolute gap at all axial positions
@@ -342,10 +342,11 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0):
     V_plasma = get_plasma_volume(a_0_min, a_0_end, L_segment)
     V_plasma_fus = get_plasma_volume(0.9*a_0_min, 0.9*a_0_end, L_segment)
 
-    # Surface area - CONSTANT absolute standoff of 0.1 × a_0_min everywhere
-    standoff = 0.1 * a_0_min  # Constant absolute gap
-    a0_center_vessel = a_0_min + standoff  # = 1.1 × a_0_min
-    a0_end_vessel = a_0_end + standoff     # NOT proportional to a_0_end
+    # Surface area - wall gap of standoff_rho core ion Larmor radii
+    # roughly (1+standoff_rho Larmor radii from 90% surface, within which ions are at roughly Eb)
+    standoff_frac = standoff_rho / Nrho
+    a0_center_vessel = (1+standoff_frac) * a_0_min 
+    a0_end_vessel = (1+standoff_frac) * a_0_end
 
     # Frustum lateral surface: π(R+r)√[h² + (R-r)²]
     slant_height = np.sqrt(L_segment**2 + (a0_center_vessel - a0_end_vessel)**2)

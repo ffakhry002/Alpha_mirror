@@ -40,10 +40,11 @@ class Params():
 
     # Practical engineering limit
     min_a0 = 0.1                # Minimum minor radius [m]
-    min_L = 5.                  # Minimum length so everythin fits
+    min_L = 4.                  # Minimum length so everythin fits
     qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
     max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
     max_nbi_current = 10000    #  JET deuterium current [A]
+    standoff_rho = 2.          # Number of core ion Larmor radii between LCFS and wall
 
     # Flux expansion cell parameters
     max_L_exp = 5. # Maximum length of flux expansion cells
@@ -124,7 +125,7 @@ class Params():
     #V_levels = np.array(np.arange(0, 0.4, 0.05))
     V_levels = np.array([])
 
-    test_points_list = [(0.593, 2.429)]
+    test_points_list = [(0.583, 2.597)]
 
     figures_dir = get_repo_root() / 'figures'
     figures_dir.mkdir(exist_ok=True)

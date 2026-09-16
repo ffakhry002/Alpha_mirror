@@ -194,14 +194,17 @@ def make_histograms(df):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--filename', type=str, 
-                        default='mag_field_nrho_popcon_optimization.png',
-                        help='Output filename / cached results for the plot')
+                        default='mag_field_nrho_popcon_optimization.csv',
+                        help='Output .csv filename / cached results for the plot')
+    parser.add_argument('-b', '--bypass', type=bool, 
+                    default=False,
+                    help='Whether to bypass and overwrite saved results (default False)')
     args = parser.parse_args()
     plt.rcParams['font.size'] = 11
     B_0_scan = np.arange(2.5, 7.25, 0.25)
-    B_m_scan = np.arange(22, 31, 3)
+    B_m_scan = np.arange(19, 31, 3)
     N_rho_scan = np.array([10, 12, 15, 18])
-    df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, args.filename, bypass=False)
+    df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, args.filename, bypass=args.bypass)
     fig = make_histograms(df)
     fn_png = f"{args.filename[:-3]}png"
     print(f"Saving figure to {fn_png}")
