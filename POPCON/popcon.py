@@ -44,7 +44,7 @@ class Popcon():
         # Can later make this an xarray DataSet
         self.E_b100_grid = None    # [100keV]
         self.n_20_grid = None      # [1e20 m^-3]
-        self.beta_local = None     # Beta with diamagnetic correction
+        self.beta_vac = None       # Beta with diamagnetic correction
         self.B_0_grid = None       # 2D grid of B_0 with diamagnetic contribution [T]
         self.R_M_dmag = None       # 2D grid of mirror ratio incl. diamagnetic effects
         self.a_0_dict = None       # Dictionary storing 2D arrays of each min constraint on a_0 [m]
@@ -94,16 +94,18 @@ class Popcon():
         self.n_20_beta_limit = eqn.calculate_beta_limit(self.E_b100_grid, self.B_0_vac, Params.beta_c_default)
 
         # Calculate local beta and on-axis field (diamagnetically adjusted)
-        self.beta_local = eqn.calculate_beta_local(self.n_20_grid, self.E_b100_grid, self.B_0_vac)
-        self.B_0_grid = eqn.calculate_B0_with_diamagnetic(self.B_0_vac, self.beta_local)
+        self.beta_vac = eqn.calculate_beta_vac(self.n_20_grid, self.E_b100_grid, self.B_0_vac)
+        self.B_0_grid = eqn.calculate_B0_with_diamagnetic(self.B_0_vac, self.beta_vac)
 
         # Calculate diamagnetic mirror ratio
         self.R_M_dmag = self.B_m / self.B_0_grid
 
         # Calculate geometry constraints
         a_0_abs = eqn.calculate_a0_absorption(self.E_b100_grid, self.n_20_grid)
+        # Use net B for DCLC
         a_0_DCLC = eqn.calculate_a0_DCLC(self.E_b100_grid, self.B_0_grid, N_rho=self.N_rho)  # DCLC stabilization
-        a_0_adiabatic = eqn.calculate_a0_adiabaticity(self.E_b100_grid, self.B_0_grid, self.beta_local)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
+        # The rho_i used in Forest's definition should use the net field but beta should be beta_vac
+        a_0_adiabatic = eqn.calculate_a0_adiabaticity(self.E_b100_grid, self.B_0_grid, self.beta_vac)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
         a_0_cold_neutrals = eqn.calculate_a0_cold_neutral_mfp(self.n_20_grid)
         a_0_eng = Params.min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint
         # Stack all arrays along a new axis and find limiting constraint on a_0
@@ -374,7 +376,7 @@ class Popcon():
 
         # Beta contours
         if len(Params.beta_levels) > 0:
-            beta_valid = self.beta_local.copy()
+            beta_valid = self.beta_vac.copy()
             beta_valid[self.invalid] = np.nan
             CS_beta = ax.contour(self.E_b100_grid, self.n_20_grid, beta_valid,
                                 levels=Params.beta_levels, colors='orange', linewidths=1.5,
@@ -557,7 +559,7 @@ class Popcon():
             ion_gyro_rad_cm = eqn.calculate_ion_larmor_radius(self.E_b100_grid[i,j], self.B_0_grid[i,j])*100
             a_end = eqn.calculate_a0_end(self.a_0_min[i,j], self.B_0_vac, self.B_m)
             print(f"{E_b100_target*100:6.1f} {n_20_target:6.2f} {self.rev_per_vol[i,j]/1e6:9.0f}" 
-                  f"{self.CF[i,j]:6.3f} {self.beta_local[i,j]:6.3f} {self.B_0_grid[i,j]:6.3f} "
+                  f"{self.CF[i,j]:6.3f} {self.beta_vac[i,j]:6.3f} {self.B_0_grid[i,j]:6.3f} "
                   f"{self.R_M_dmag[i,j]:7.2f} {self.a_0_dict['abs'][i,j]:7.4f} {self.a_0_dict['DCLC'][i,j]:7.4f}"
                   f"{self.a_0_dict['N MFP'][i,j]:7.4f} {self.a_0_min[i,j]:7.4f} {self.L_mirror[i,j]:6.2f} "
                   f"{self.V_plasma[i,j]:7.3f} {self.C_loss[i,j]:7.4f} {self.P_fus[i,j]:7.2f} {self.P_nbi[i,j]:7.2f} "

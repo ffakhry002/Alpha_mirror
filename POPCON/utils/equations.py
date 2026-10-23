@@ -169,6 +169,18 @@ def calculate_beta_local(n_20, E_b_100keV, B_central):
     beta = 0.5 - 0.5 * np.sqrt(discriminant)
     return beta
 
+def calculate_beta_vac(n_20, E_b_100keV, B_central):
+    """
+    Returns the plasma beta using the z=0,r=0 vacuum field 2mu0 p / B_central.
+    This is the definition used in the Hammir Physics basis (Frank, 2025)
+    The Forest paper mixes up beta_vac and beta_local bc often diamagnetic
+    effects aren't accounted for. The beta_vac should be used in caculating
+    the diamagnetic field.
+    Here p = nT_i + nT_e and it's assumed T_i = 2E_b/3 and T_e = 0.1E_b
+    The factor of 3.08 is more precise than Forest's factor of 3 just prior to Eq. 2.1
+    """
+    return 3.08*n_20*E_b_100keV/B_central
+    
 
 def calculate_B0_with_diamagnetic(B_central, beta_local):
     """
@@ -180,10 +192,20 @@ def calculate_B0_with_diamagnetic(B_central, beta_local):
     B_0 = B_central * np.sqrt(1 - beta_local)
     return B_0
 
-
 def calculate_beta_limit(E_b_100keV, B_central, beta_c):
     """
+    Returns the maximum density from the beta limit using the vacuum 
+    definition of beta according to Forest Eq. 2.1.
+    The vacuum beta limit is the standard beta used in the field
+    (see Frank HAMMIR physics basis and Kotelnikov 2025)
+    Note the number 3.08 is slightly more precise than Forest's 3
+    """
+    return beta_c*B_central/(3.08*E_b_100keV)
+
+def calculate_beta_limit_local(E_b_100keV, B_central, beta_c):
+    """
     n₂₀,max = (B_central²/12E_b) × [1 - (1-2β_c)²]
+    Uses local definition of beta limit
 
     Maximum density from beta limit at β = β_c
     """
