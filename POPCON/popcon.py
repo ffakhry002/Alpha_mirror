@@ -101,13 +101,13 @@ class Popcon():
         self.R_M_dmag = self.B_m / self.B_0_grid
 
         # Calculate geometry constraints
-        a_0_abs = eqn.calculate_a0_absorption(self.E_b100_grid, self.n_20_grid)
+        a_0_abs = Params.a0_sf*eqn.calculate_a0_absorption(self.E_b100_grid, self.n_20_grid)
         # Use net B for DCLC
-        a_0_DCLC = eqn.calculate_a0_DCLC(self.E_b100_grid, self.B_0_grid, N_rho=self.N_rho)  # DCLC stabilization
+        a_0_DCLC = Params.a0_sf*eqn.calculate_a0_DCLC(self.E_b100_grid, self.B_0_grid, N_rho=self.N_rho)  # DCLC stabilization
         # The rho_i used in Forest's definition should use the net field but beta should be beta_vac
-        a_0_adiabatic = eqn.calculate_a0_adiabaticity(self.E_b100_grid, self.B_0_grid, self.beta_vac)  # Adiabaticity (50*rho_i*(1-sqrt(1-beta)))
-        a_0_cold_neutrals = eqn.calculate_a0_cold_neutral_mfp(self.n_20_grid)
-        a_0_eng = Params.min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint
+        a_0_adiabatic = Params.a0_sf*eqn.calculate_a0_adiabaticity(self.E_b100_grid, self.B_0_grid, self.beta_vac) 
+        a_0_cold_neutrals = Params.a0_sf*eqn.calculate_a0_cold_neutral_mfp(self.n_20_grid)
+        a_0_eng = Params.min_a0 * np.ones_like(a_0_abs) # Practical engineering constraint (no safety factor needed)
         # Stack all arrays along a new axis and find limiting constraint on a_0
         self.a_0_dict = {
             'abs':    a_0_abs,

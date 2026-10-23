@@ -9,7 +9,7 @@ class Params():
 
     # Magnetic field parameters
     B_max_default = 22.0         # Maximum mirror field [T]
-    B_central_default = 5.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+    B_central_default = 5.5    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
     beta_c_default = 0.5         # MHD stability limit
 
     # Temperature scaling coefficients (from Egedal et al.)
@@ -37,6 +37,9 @@ class Params():
 
     # Density axis
     n_20_min = 1   # Minimum density [1e20 m^-3]
+
+    # Safety factor on plasma radius for physics-based limits
+    a0_sf = 1.0
 
     # Practical engineering limit
     min_a0 = 0.1                # Minimum minor radius [m]

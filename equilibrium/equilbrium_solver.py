@@ -96,13 +96,13 @@ def add_plasma_radius_profile(profiles: pd.DataFrame, E_NBI_keV, n0) -> pd.DataF
     Adds a column corresponding to the plasma radius from flux conservation
     """
     # Get plasma minor radius at mirror center
-    a0_abs = eqn.calculate_a0_absorption(E_b_100keV=E_NBI_keV/100, n_20=n0/1e20)
+    a0_abs = Params.a0_sf*eqn.calculate_a0_absorption(E_b_100keV=E_NBI_keV/100, n_20=n0/1e20)
     # TODO: Make Nrho a configuration parameter
-    a0_DCLC = eqn.calculate_a0_DCLC(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0], N_rho=12)
-    a_0_adiab = eqn.calculate_a0_adiabaticity(E_b_100keV=E_NBI_keV/100, 
+    a0_DCLC = Params.a0_sf*eqn.calculate_a0_DCLC(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0], N_rho=12)
+    a_0_adiab = Params.a0_sf*eqn.calculate_a0_adiabaticity(E_b_100keV=E_NBI_keV/100, 
                                               B_0=profiles['B_z'].to_numpy()[0], 
                                               beta=profiles['beta'].to_numpy()[0])
-    a_0_mfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n0/1e20)[0]
+    a_0_mfp = Params.a0_sf*eqn.calculate_a0_cold_neutral_mfp(n_20=n0/1e20)[0]
     print(f"a0 limits:")
     print(f"a0_abs = {a0_abs:.5f}")
     print(f"a0_DCLC = {a0_DCLC:.5f}")
