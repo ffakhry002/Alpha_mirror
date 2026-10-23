@@ -88,7 +88,6 @@ def add_plasma_beta_profile(profiles: pd.DataFrame, vacuum_profiles: pd.DataFram
     """
     # TODO: Use vacuum field
     # TODO: Align with POPCON definition
-    profiles['beta'] = eqn.calculate_beta_local
     profiles['beta'] = 2 * 4*np.pi*1e-7 * profiles['p_perp'] / vacuum_profiles['B_z']**2
     return profiles
 
@@ -98,11 +97,17 @@ def add_plasma_radius_profile(profiles: pd.DataFrame, E_NBI_keV, n0) -> pd.DataF
     """
     # Get plasma minor radius at mirror center
     a0_abs = eqn.calculate_a0_absorption(E_b_100keV=E_NBI_keV/100, n_20=n0/1e20)
-    a0_DCLC = eqn.calculate_a0_DCLC(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0])
+    a0_DCLC = eqn.calculate_a0_DCLC(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0], N_rho=12)
     a_0_adiab = eqn.calculate_a0_adiabaticity(E_b_100keV=E_NBI_keV/100, 
                                               B_0=profiles['B_z'].to_numpy()[0], 
                                               beta=profiles['beta'].to_numpy()[0])
-    a_0_mfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n0/1e20)
+    a_0_mfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n0/1e20)[0]
+    print(f"a0 limits:")
+    print(f"a0_abs = {a0_abs:.5f}")
+    print(f"a0_DCLC = {a0_DCLC:.5f}")
+    print(f"a0_adiab = {a_0_adiab:.5f}")
+    print(f"a_0_mfp = {a_0_mfp}")
+
     a0 = max(a0_abs, a0_DCLC, a_0_adiab, a_0_mfp, Params.min_a0)
     print(f"Min radius at z=0: {a0:.5f}")
     # Calculate a(z) from flux conservation
