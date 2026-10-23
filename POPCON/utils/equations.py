@@ -179,7 +179,7 @@ def calculate_beta_vac(n_20, E_b_100keV, B_central):
     Here p = nT_i + nT_e and it's assumed T_i = 2E_b/3 and T_e = 0.1E_b
     The factor of 3.08 is more precise than Forest's factor of 3 just prior to Eq. 2.1
     """
-    return 3.08*n_20*E_b_100keV/B_central
+    return 3.08*n_20*E_b_100keV/B_central**2
     
 
 def calculate_B0_with_diamagnetic(B_central, beta_local):
@@ -200,7 +200,7 @@ def calculate_beta_limit(E_b_100keV, B_central, beta_c):
     (see Frank HAMMIR physics basis and Kotelnikov 2025)
     Note the number 3.08 is slightly more precise than Forest's 3
     """
-    return beta_c*B_central/(3.08*E_b_100keV)
+    return beta_c*B_central**2/(3.08*E_b_100keV)
 
 def calculate_beta_limit_local(E_b_100keV, B_central, beta_c):
     """
