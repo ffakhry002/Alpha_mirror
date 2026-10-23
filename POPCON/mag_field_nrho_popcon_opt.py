@@ -201,8 +201,8 @@ if __name__=="__main__":
                     help='Whether to bypass and overwrite saved results (default False)')
     args = parser.parse_args()
     plt.rcParams['font.size'] = 11
-    B_0_scan = np.arange(2.5, 7.25, 0.25)
-    B_m_scan = np.arange(19, 31, 3)
+    B_0_scan = np.arange(2.5, 5.75, 0.25)
+    B_m_scan = np.arange(17, 23, 1)
     N_rho_scan = np.array([10, 12, 15, 18])
     df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, args.filename, bypass=args.bypass)
     fig = make_histograms(df)

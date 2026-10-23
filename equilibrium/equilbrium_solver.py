@@ -87,6 +87,8 @@ def add_plasma_beta_profile(profiles: pd.DataFrame, vacuum_profiles: pd.DataFram
     Adds the local plasma beta as a function of z as a column in the profiles DataFrame
     """
     # TODO: Use vacuum field
+    # TODO: Align with POPCON definition
+    profiles['beta'] = eqn.calculate_beta_local
     profiles['beta'] = 2 * 4*np.pi*1e-7 * profiles['p_perp'] / vacuum_profiles['B_z']**2
     return profiles
 
@@ -102,6 +104,7 @@ def add_plasma_radius_profile(profiles: pd.DataFrame, E_NBI_keV, n0) -> pd.DataF
                                               beta=profiles['beta'].to_numpy()[0])
     a_0_mfp = eqn.calculate_a0_cold_neutral_mfp(n_20=n0/1e20)
     a0 = max(a0_abs, a0_DCLC, a_0_adiab, a_0_mfp, Params.min_a0)
+    print(f"Min radius at z=0: {a0:.5f}")
     # Calculate a(z) from flux conservation
     B0 = profiles['B_z'].to_numpy()[0]
     profiles['a'] = a0 * np.sqrt(B0 / profiles['B_z'])
@@ -124,6 +127,7 @@ def get_nwl_profile(profiles: pd.DataFrame) -> pd.DataFrame:
     Use assumption NWL = P_n / 2pi*r_wall where r_wall is the local
     radius of the wall
     """
+    # TODO: Use standoff rho, not constant 10%
     S_n = profiles['S_fus'].to_numpy() * 14.1/17.6
     r_wall = profiles['a'] + 0.1*profiles['a'].to_numpy()[0]
     # Assume fusion only happens for r < 0.9*a
@@ -190,10 +194,10 @@ if __name__=='__main__':
     # R_m = 4.0 
     mu_i = 2.5
     theta_NBI = np.pi/4.0 #[rad]
-    E_NBI_keV = 56.9 #[keV]
-    n0 = 2.807e20 # Volume averaged density [m^-3]
+    E_NBI_keV = 59.28 #[keV]
+    n0 = 2.429e20 # Radial-averaged density on axis
     max_iterations = 2
-    vacuum_field_fn = 'Mirror-optimization/field_profile_22T_design3.csv'
+    vacuum_field_fn = 'Mirror-optimization/COMSOL_5m_22T_Bz.csv'
     cache_dir = 'equilibrium/cache'
 
     #  1) Read in vacuum magnetic equilibrium
@@ -223,7 +227,7 @@ if __name__=='__main__':
         profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
         print(profiles)
 
-        # 4) Normalize profiles based on n0. Later normalize based on Pnbi
+        # 4) Normalize profiles based on n0 to ensure NBI energy is properly absorbed
         #profiles = normalize_profiles_new(profiles=profiles, n0 = n0)
         profiles = normalize_profiles(profiles=profiles, n0=n0, E_NBI_keV=E_NBI_keV)
         #4) normalize profiles via normalization factor n20/<n>
@@ -266,6 +270,7 @@ if __name__=='__main__':
 
     print("\nVolume integrated quantities:")
     print(f"P_fus = {get_fusion_power(profiles):.2f} MW")
+    print(f"P_n = {14.1/17.6*get_fusion_power(profiles):.2f} MW")
     P_nbi = get_required_nbi_power(profiles, Rm_vac=Rm_vac, E_NBI_keV=E_NBI_keV, n0=n0)
     print(f"P_nbi = {P_nbi:.2f} MW")
     print(f"Mass of tritium in plasma = {get_tritium_mass_in_plasma(profiles):.2e} g")
@@ -302,13 +307,18 @@ if __name__=='__main__':
     axs[1].set_yticks(np.arange(0, 100, 20))
     axs[1].set_title('Fusion Power Density', fontsize=16)
     #axs[2].plot(profiles['z'], profiles['nwl'], c='r')
-    axs[2].set_title('Neutron Wall Loading (Not OpenMC)', fontsize=16)
-    axs[2].set_ylabel("MW/m$^2$", fontsize=14)
-    axs[2].set_yticks(np.arange(0, 2.0, 0.5))
-    axs[2].axvspan(-1.2, -0.4, color='tab:orange', alpha=0.2, zorder=0)
-    axs[2].axvspan(-0.4, 1.2, color='tab:purple', alpha=0.2, zorder=0)
+    # axs[2].set_title('NWL (Local Approx; Not OpenMC)', fontsize=16)
+    # axs[2].set_ylabel("MW/m$^2$", fontsize=14)
+    # axs[2].set_yticks(np.arange(0, 2.0, 0.5))
+    # axs[2].axvspan(-1.2, -0.4, color='tab:orange', alpha=0.2, zorder=0)
+    # axs[2].axvspan(-0.4, 1.2, color='tab:purple', alpha=0.2, zorder=0)
+    axs[2].plot(profiles['z'], profiles['a'], c='r', label='Plasma radius')
+    axs[2].set_ylim(0, 0.16)
+    axs[2].set_yticks(np.arange(0, 0.17, 0.04))
+    axs[2].set_ylabel('[m]', fontsize=14)
+    axs[2].legend(fontsize=12)
     axs[-1].set_xlabel('Z [m]', fontsize=14)
-    axs[0].set_xlim(-1.5, 1.5)
+    axs[0].set_xlim(-2.5, 2.5)
     for ax in axs:
         ax.grid()
     plt.tight_layout()
