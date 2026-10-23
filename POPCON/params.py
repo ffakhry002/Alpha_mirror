@@ -9,7 +9,7 @@ class Params():
 
     # Magnetic field parameters
     B_max_default = 22.0         # Maximum mirror field [T]
-    B_central_default = 5.5    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
+    B_central_default = 5.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
     beta_c_default = 0.5         # MHD stability limit
 
     # Temperature scaling coefficients (from Egedal et al.)
@@ -43,11 +43,14 @@ class Params():
 
     # Practical engineering limit
     min_a0 = 0.1                # Minimum minor radius [m]
-    min_L = 5.                  # Minimum length so everythin fits
+    min_L = 5                  # Minimum length so everythin fits
     qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
     max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
     max_nbi_current = 10000    #  JET deuterium current [A]
     standoff_rho = 2.          # Number of core ion Larmor radii between LCFS and wall
+
+    # Other geometry parameters
+    frac_cylinder = 0.5     # Fraction of frustum-cylinder-frustum geometry length taken by cylinder
 
     # Flux expansion cell parameters
     max_L_exp = 5. # Maximum length of flux expansion cells
@@ -88,8 +91,8 @@ class Params():
     P_fus_avg_levels = np.array([])
 
     # NBI power contour levels [MW]
-    P_NBI_levels = np.array(np.arange(10, 35, 5))
-    #P_NBI_levels = np.array([])
+    #P_NBI_levels = np.array(np.arange(10, 30, 2))
+    P_NBI_levels = np.array([15., 16., 17., 18, 19, 20, 22, 26, 30])
 
     # On-axis field contour levels [T]
     B_0_levels = np.array([0])

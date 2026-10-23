@@ -324,7 +324,7 @@ def calculate_a0_end(a_0_center, B_0, B_mirror):
     a_0_end = a_0_center * np.sqrt(B_0 / B_mirror)
     return a_0_end
 
-def get_plasma_volume(a_center, a_end, legnth):
+def get_plasma_volume(a_center, a_end, frust_len, cyl_len):
     """
     Calculates the plasma volume using a three-segment geometry: 
     frustum + cyclinder + frustum, all of equal length
@@ -332,12 +332,14 @@ def get_plasma_volume(a_center, a_end, legnth):
     a_center : float, radius of cylinder
     a_end: float, radius of smaller frustum circular base
     length: length of frustum and cylinder segments
+    frac_cylinder: fractional length of cylinder
 
     Returns: float, plasma volume
     """
     # Frustum volume formula: Wikipedia
-    V_frustum = np.pi / 3 * legnth * a_end**2 + a_center**2 + a_center*a_end
-    V_cylinder = np.pi * a_center**2 * legnth
+    # Volume of each frustum
+    V_frustum = np.pi / 3 * frust_len * a_end**2 + a_center**2 + a_center*a_end
+    V_cylinder = np.pi * a_center**2 * cyl_len
     return V_cylinder + 2*V_frustum
 
 def calculate_wall_standoff_frac(a_0_min, E_b_100keV, B_0, standoff_rho):
@@ -350,7 +352,7 @@ def calculate_wall_standoff_frac(a_0_min, E_b_100keV, B_0, standoff_rho):
     nrho_actual = a_0_min / rho_i # Usually is close to Nrho (min number of Larmor radii)
     return standoff_rho / nrho_actual
 
-def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, standoff_rho):
+def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, standoff_rho, frac_cylinder):
     """
     Three-segment geometry: frustum-cylinder-frustum
     Constant standoff: 0.1 × a_0_min absolute gap at all axial positions
@@ -366,13 +368,13 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, standof
     # is roughly half of the length between the mirror throats. Thus add factor of 4.
     L_plasma = 2*a_0_min**2 / rho_i
     L_plasma = np.maximum(L_plasma, Params.min_L)
-
-    # Each segment is L/3
-    L_segment = L_plasma / 3
+    # Length of cylinder and frustums for frustum + cylinder + frustum model of plasma volume
+    cyl_len = L_plasma * frac_cylinder
+    frust_len = L_plasma * (1 - frac_cylinder)/2
 
     # Total plasma volume
-    V_plasma = get_plasma_volume(a_0_min, a_0_end, L_segment)
-    V_plasma_fus = get_plasma_volume(0.9*a_0_min, 0.9*a_0_end, L_segment)
+    V_plasma = get_plasma_volume(a_0_min, a_0_end, frust_len=frust_len, cyl_len=cyl_len)
+    V_plasma_fus = get_plasma_volume(0.9*a_0_min, 0.9*a_0_end, frust_len=frust_len, cyl_len=cyl_len)
 
     # Surface area - wall gap of standoff_rho core ion Larmor radii
     # roughly (1+standoff_rho Larmor radii from 90% surface, within which ions are at roughly Eb)
@@ -384,11 +386,11 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, standof
     a0_end_vessel = (1+standoff_frac) * a_0_end
 
     # Frustum lateral surface: π(R+r)√[h² + (R-r)²]
-    slant_height = np.sqrt(L_segment**2 + (a0_center_vessel - a0_end_vessel)**2)
+    slant_height = np.sqrt(frust_len**2 + (a0_center_vessel - a0_end_vessel)**2)
     A_frustum = np.pi * (a0_center_vessel + a0_end_vessel) * slant_height
 
     # Cylinder lateral surface: 2πRh
-    A_cylinder = 2 * np.pi * a0_center_vessel * L_segment
+    A_cylinder = 2 * np.pi * a0_center_vessel * cyl_len
 
     # Total vessel surface area
     vessel_surface_area = 2 * A_frustum + A_cylinder
