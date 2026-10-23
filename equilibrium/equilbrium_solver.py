@@ -97,6 +97,7 @@ def add_plasma_radius_profile(profiles: pd.DataFrame, E_NBI_keV, n0) -> pd.DataF
     """
     # Get plasma minor radius at mirror center
     a0_abs = eqn.calculate_a0_absorption(E_b_100keV=E_NBI_keV/100, n_20=n0/1e20)
+    # TODO: Make Nrho a configuration parameter
     a0_DCLC = eqn.calculate_a0_DCLC(E_b_100keV=E_NBI_keV/100, B_0=profiles['B_z'].to_numpy()[0], N_rho=12)
     a_0_adiab = eqn.calculate_a0_adiabaticity(E_b_100keV=E_NBI_keV/100, 
                                               B_0=profiles['B_z'].to_numpy()[0], 
@@ -114,6 +115,14 @@ def add_plasma_radius_profile(profiles: pd.DataFrame, E_NBI_keV, n0) -> pd.DataF
     B0 = profiles['B_z'].to_numpy()[0]
     profiles['a'] = a0 * np.sqrt(B0 / profiles['B_z'])
     return profiles
+
+def add_wall_radius_profile(profiles: pd.DataFrame, E_NBI_kev) -> pd.DataFrame:
+    standoff_frac = eqn.calculate_wall_standoff_frac(a_0_min=profiles['a'],
+                                                     E_b_100keV=E_NBI_kev/100,
+                                                     B_0=profiles['B_z'],
+                                                     standoff_rho=Params.standoff_rho)
+    profiles['R'] = (1+standoff_frac)*profiles['a']
+    return profiles 
 
 def add_fusion_power_density_profile(profiles: pd.DataFrame, E_NBI_keV) -> pd.DataFrame:
     """
@@ -149,6 +158,7 @@ def get_fusion_power(profiles: pd.DataFrame) -> float:
 
 def get_number_ions(profiles: pd.DataFrame) -> float:
     """Calculates the total number of DT ions in the plasma"""
+    print("z < 0 profiles when getting # ions")
     return 2*trapezoid(profiles['n']*np.pi*profiles['a']**2, profiles['z'])
 
 def get_required_nbi_power(profiles: pd.DataFrame, Rm_vac: float, E_NBI_keV: float, n0: float) -> float:
@@ -226,25 +236,26 @@ if __name__=='__main__':
         profiles = get_kinetic_profiles(B_profile=B_tot, theta_NBI=theta_NBI, 
                                          E_NBI_keV=E_NBI_keV, cache_dir=cache_dir)
         print(profiles)
-        
-        # # Get plasma beta and plasma radius as profiles
-        profiles = add_plasma_beta_profile(profiles, vacuum_B)
-        profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
-        print(profiles)
+    
 
         # 4) Normalize profiles based on n0 to ensure NBI energy is properly absorbed
         #profiles = normalize_profiles_new(profiles=profiles, n0 = n0)
         profiles = normalize_profiles(profiles=profiles, n0=n0, E_NBI_keV=E_NBI_keV)
         #4) normalize profiles via normalization factor n20/<n>
 
-        #profiles['beta_forest'] = 3* profiles['n']/1e20 * E_NBI_keV/100 / vacuum_B['B_z']**2
         # 5) Update field profile from diamagnetic contribution
+        # # Get plasma beta and plasma radius as profiles
+        profiles = add_plasma_beta_profile(profiles, vacuum_B)
+        profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
+        print(profiles)
+        #profiles['beta_forest'] = 3* profiles['n']/1e20 * E_NBI_keV/100 / vacuum_B['B_z']**2
         B_tot['B_z'] = vacuum_B['B_z'] * np.sqrt(1 - profiles['beta'])
     each_iteration_Btot.append(B_tot['B_z'].to_numpy())
 
     
     # Get plasma radius
     profiles = add_plasma_radius_profile(profiles, E_NBI_keV=E_NBI_keV, n0=n0)
+    profiles = add_wall_radius_profile(profiles, E_NBI_kev=E_NBI_keV)
     profiles = add_fusion_power_density_profile(profiles, E_NBI_keV=E_NBI_keV)
     #profiles = get_nwl_profile(profiles)
     profiles['B_z_vac'] = vacuum_B['B_z']
@@ -268,12 +279,16 @@ if __name__=='__main__':
 
     # Calculate Fusion power
 
+    print("--- z=0 Params----")
     print(f"n0 = {profiles['n'].to_numpy()[0]}")
     print(f"B0 = {profiles['B_z'].to_numpy()[0]:.1} T")
     print(f"a0 = {profiles['a'].to_numpy()[0]:.3} m")
+    print(f"R_0 = {profiles['R'].to_numpy()[0]:.3} m")
     print(f"S_fus,0 = {profiles['S_fus'].to_numpy()[0]:.2f} MW/m^3")
 
-    print("\nVolume integrated quantities:")
+    print("\n Global quantities:")
+    print(f"Vol. Avg. Density: <n> = {1e-20*get_number_ions(profiles) / get_plasma_volume(profiles):.3f} 1e20m^-3" )
+    print(f"Max beta: {np.max(profiles['beta']):.3f}")
     print(f"P_fus = {get_fusion_power(profiles):.2f} MW")
     print(f"P_n = {14.1/17.6*get_fusion_power(profiles):.2f} MW")
     P_nbi = get_required_nbi_power(profiles, Rm_vac=Rm_vac, E_NBI_keV=E_NBI_keV, n0=n0)
@@ -300,7 +315,7 @@ if __name__=='__main__':
     axs[0].set_ylim(0, 25)
     axs[0].set_ylabel('$B_z$ [T]', fontsize=14)
     axs[0].set_yticks(np.arange(0, 30, 5))
-    axs[0].set_title('Net Axial Magnetic Field', fontsize=16)
+    axs[0].set_title('Axial Magnetic Field', fontsize=16)
     # axs[1].plot(profiles['z'], profiles['a'], c='k')
     # axs[1].set_ylim(0, 1.2*np.max(profiles['a']))
     # axs[1].set_yticks(np.arange(0, 0.16, 0.04))
@@ -317,7 +332,8 @@ if __name__=='__main__':
     # axs[2].set_yticks(np.arange(0, 2.0, 0.5))
     # axs[2].axvspan(-1.2, -0.4, color='tab:orange', alpha=0.2, zorder=0)
     # axs[2].axvspan(-0.4, 1.2, color='tab:purple', alpha=0.2, zorder=0)
-    axs[2].plot(profiles['z'], profiles['a'], c='r', label='Plasma radius')
+    axs[2].plot(profiles['z'], profiles['a'], c='r', label='Plasma rad.')
+    axs[2].plot(profiles['z'], profiles['R'], c='k', label='First wall rad.')
     axs[2].set_ylim(0, 0.16)
     axs[2].set_yticks(np.arange(0, 0.17, 0.04))
     axs[2].set_ylabel('[m]', fontsize=14)

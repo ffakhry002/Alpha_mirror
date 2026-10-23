@@ -340,7 +340,17 @@ def get_plasma_volume(a_center, a_end, legnth):
     V_cylinder = np.pi * a_center**2 * legnth
     return V_cylinder + 2*V_frustum
 
-def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, Nrho, standoff_rho):
+def calculate_wall_standoff_frac(a_0_min, E_b_100keV, B_0, standoff_rho):
+    """
+    Get the first wall standoff fraction R_0 / a_0 where R_0 is the first wall radius
+    at z = 0 and a_0 is the plasma radius at z = 0. This standoff frac R / a is constant
+    along z.
+    """
+    rho_i = calculate_ion_larmor_radius(E_b_100keV, B_0)
+    nrho_actual = a_0_min / rho_i # Usually is close to Nrho (min number of Larmor radii)
+    return standoff_rho / nrho_actual
+
+def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, standoff_rho):
     """
     Three-segment geometry: frustum-cylinder-frustum
     Constant standoff: 0.1 × a_0_min absolute gap at all axial positions
@@ -366,7 +376,10 @@ def calculate_plasma_geometry_frustum(a_0_min, a_0_end, E_b_100keV, B_0, Nrho, s
 
     # Surface area - wall gap of standoff_rho core ion Larmor radii
     # roughly (1+standoff_rho Larmor radii from 90% surface, within which ions are at roughly Eb)
-    standoff_frac = standoff_rho / Nrho
+    standoff_frac = calculate_wall_standoff_frac(a_0_min=a_0_min, 
+                                                 E_b_100keV=E_b_100keV,
+                                                 B_0=B_0,
+                                                 standoff_rho=standoff_rho)
     a0_center_vessel = (1+standoff_frac) * a_0_min 
     a0_end_vessel = (1+standoff_frac) * a_0_end
 

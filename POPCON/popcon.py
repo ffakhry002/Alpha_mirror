@@ -132,7 +132,7 @@ class Popcon():
         for i in range(Params.n_grid_points):
             for j in range(Params.n_grid_points):
                 L, Vp, Vf, A = eqn.calculate_plasma_geometry_frustum(
-                    self.a_0_min[i, j], a_0_end[i, j], self.E_b100_grid[i, j], self.B_0_grid[i, j], self.N_rho, Params.standoff_rho
+                    self.a_0_min[i, j], a_0_end[i, j], self.E_b100_grid[i, j], self.B_0_grid[i, j], Params.standoff_rho
                 )
                 self.L_mirror[i, j] = L
                 self.V_plasma[i, j] = Vp
