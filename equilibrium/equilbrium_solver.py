@@ -200,19 +200,14 @@ def get_wall_surface_area(profiles: pd.DataFrame) -> float:
     return 2*trapezoid(2*np.pi*r_wall, profiles['z'])
 
 if __name__=='__main__':
-    # physical constants
-    m_p = 1.6726e-27 #[kg]
-    m_e = 9.1093e-31 #[kg]
-    eCharge = 1.60217e-19 #[C]
 
     # parameters
     # R_m = 4.0 
-    mu_i = 2.5
     theta_NBI = np.pi/4.0 #[rad]
-    E_NBI_keV = 59.28 #[keV]
-    n0 = 2.429e20 # Radial-averaged density on axis
+    E_NBI_keV = 60.0 #[keV]
+    n0 = 2.4e20 # Radial-averaged density on axis
     max_iterations = 2
-    vacuum_field_fn = 'Mirror-optimization/COMSOL_5m_22T_Bz.csv'
+    vacuum_field_fn = 'Mirror-optimization/COMSOL_4_5_m_on_axis_Bz.csv'
     cache_dir = 'equilibrium/cache'
 
     #  1) Read in vacuum magnetic equilibrium
@@ -262,7 +257,6 @@ if __name__=='__main__':
 
     # Constant columns for replicating data
     profiles['E_b_keV'] = E_NBI_keV
-    profiles['n0'] = n0
     profiles.to_csv('equilibrium/axial_profiles_update.csv', index=False)
 
     # Plot to show convergence
@@ -289,8 +283,10 @@ if __name__=='__main__':
     print("\n Global quantities:")
     print(f"Vol. Avg. Density: <n> = {1e-20*get_number_ions(profiles) / get_plasma_volume(profiles):.3f} 1e20m^-3" )
     print(f"Max beta: {np.max(profiles['beta']):.3f}")
-    print(f"P_fus = {get_fusion_power(profiles):.2f} MW")
-    print(f"P_n = {14.1/17.6*get_fusion_power(profiles):.2f} MW")
+    p_fus = get_fusion_power(profiles)
+    print(f"P_fus = {p_fus:.2f} MW")
+    print(f"P_n = {14.1/17.6*p_fus:.2f} MW")
+    print(f"Isotope Revenue = {eqn.calculate_isotope_revenue(p_fus)/1e6:.2f} $M/yr")
     P_nbi = get_required_nbi_power(profiles, Rm_vac=Rm_vac, E_NBI_keV=E_NBI_keV, n0=n0)
     print(f"P_nbi = {P_nbi:.2f} MW")
     print(f"Mass of tritium in plasma = {get_tritium_mass_in_plasma(profiles):.2e} g")
@@ -312,10 +308,13 @@ if __name__=='__main__':
     for ax in axs:
         ax.tick_params(axis='both', labelsize=13)
     axs[0].plot(profiles['z'], profiles['B_z'], c='k')
+    #axs[0].plot(vacuum_B['z'], vacuum_B['B_z'], c='g', linestyle='--')
     axs[0].set_ylim(0, 25)
     axs[0].set_ylabel('$B_z$ [T]', fontsize=14)
+    axs[0].axhline(6.07, label='ECRH Res.', linestyle='--', c='g')
     axs[0].set_yticks(np.arange(0, 30, 5))
-    axs[0].set_title('Axial Magnetic Field', fontsize=16)
+    axs[0].legend(fontsize=12)
+    axs[0].set_title('Net Axial Magnetic Field', fontsize=16)
     # axs[1].plot(profiles['z'], profiles['a'], c='k')
     # axs[1].set_ylim(0, 1.2*np.max(profiles['a']))
     # axs[1].set_yticks(np.arange(0, 0.16, 0.04))
@@ -339,11 +338,12 @@ if __name__=='__main__':
     axs[2].set_ylabel('[m]', fontsize=14)
     axs[2].legend(fontsize=12)
     axs[-1].set_xlabel('Z [m]', fontsize=14)
-    axs[0].set_xlim(-2.5, 2.5)
+    axs[0].set_xticks(np.arange(-2., 2.5, 0.5))
+    axs[0].set_xlim(-2.25, 2.25)
     for ax in axs:
         ax.grid()
     plt.tight_layout()
-    plt.savefig('equilibrium_profiles.png')
+    #plt.savefig('equilibrium_profiles.png')
     plt.show()
 
 

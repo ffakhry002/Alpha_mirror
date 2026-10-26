@@ -10,7 +10,7 @@ class Params():
     # Magnetic field parameters
     B_max_default = 22.0         # Maximum mirror field [T]
     B_central_default = 5.25    # Central (conductor) field [T], 6 T corresponds to ECRH at 170 GHz (ITER like)
-    beta_c_default = 0.5         # MHD stability limit
+    beta_c_default = 0.3         # MHD stability limit
 
     # Temperature scaling coefficients (from Egedal et al.)
     T_i_coeff = 2/3          # Ti = (2/3)E_b [keV]
@@ -39,21 +39,22 @@ class Params():
     n_20_min = 1   # Minimum density [1e20 m^-3]
 
     # Safety factor on plasma radius for physics-based limits
+    # Note, it might be okay if it's 1 bc safety factors will be built into each limit
     a0_sf = 1.0
 
     # Practical engineering limit
     min_a0 = 0.1                # Minimum minor radius [m]
-    min_L = 5                  # Minimum length so everythin fits
+    min_L = 4.5                  # Minimum length so everythin fits
     qw_limit = 5                # Maximum heat flux on end-wall [MW/m^2]
-    max_nbi_power_ftop = 15.     # Maximum flattop Pnbi [MW] for two beam duct system
+    max_nbi_power_ftop = 17.     # Maximum flattop Pnbi [MW] for two beam duct system
     max_nbi_current = 10000    #  JET deuterium current [A]
     standoff_rho = 2.          # Number of core ion Larmor radii between LCFS and wall
 
     # Other geometry parameters
-    frac_cylinder = 0.5     # Fraction of frustum-cylinder-frustum geometry length taken by cylinder
+    frac_cylinder = 0.4     # Fraction of frustum-cylinder-frustum geometry length taken by cylinder
 
     # Flux expansion cell parameters
-    max_L_exp = 5. # Maximum length of flux expansion cells
+    max_L_exp = 4. # Maximum length of flux expansion cells
     epsilon = 0.2 # Ratio of rate of change of magnetic field from lost ion's point of view to gyro-frequency in expander cell to remain adiabatic
 
     # Grid resolution
@@ -64,7 +65,7 @@ class Params():
     ])
 
     # Neutron wall loading (NWL) levels and requirement
-    min_NWL = 0.1 # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
+    min_NWL = 0.5 # Constraint on min average NWL (Rule of thumb is peak approx NWL double at turning points)
     max_NWL = 3.5
     NWL_background = np.linspace(min_NWL, max_NWL, 25)  # Fine resolution for smooth background
     NWL_levels = np.array(np.arange(min_NWL, 3.0, 0.2))  # Clean contour lines
@@ -75,7 +76,7 @@ class Params():
     P_fus_background = np.linspace(0, max_P_fus, 1000)  # Fine resolution for smooth background
 
     # Revenue per volume background for POPCON [$/yr/m³]
-    max_rev_per_vol = 4e9  # $20M/yr/m³
+    max_rev_per_vol = 4e9  # $/yr/m³
     min_rev_per_vol = 0
     Rev_per_Vol_background = np.linspace(min_rev_per_vol, max_rev_per_vol, 1000)  # Fine resolution
 
@@ -131,7 +132,7 @@ class Params():
     #V_levels = np.array(np.arange(0, 0.4, 0.05))
     V_levels = np.array([])
 
-    test_points_list = [(0.5928, 2.4287)]
+    test_points_list = [(0.55, 2.4), (0.6, 2.4), (0.606, 2.544), (0.59, 2.45)]
 
     figures_dir = get_repo_root() / 'figures'
     figures_dir.mkdir(exist_ok=True)

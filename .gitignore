@@ -8,3 +8,4 @@ equilibrium/*.csv
 Rm*.csv
 mag_field*.csv
 *.png
+.DS_Store

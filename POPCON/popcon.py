@@ -94,7 +94,7 @@ class Popcon():
         self.n_20_beta_limit = eqn.calculate_beta_limit(self.E_b100_grid, self.B_0_vac, Params.beta_c_default)
 
         # Calculate local beta and on-axis field (diamagnetically adjusted)
-        self.beta_vac = eqn.calculate_beta_vac(self.n_20_grid, self.E_b100_grid, self.B_0_vac)
+        self.beta_vac = np.clip(eqn.calculate_beta_vac(self.n_20_grid, self.E_b100_grid, self.B_0_vac), a_min=None, a_max=1)
         self.B_0_grid = eqn.calculate_B0_with_diamagnetic(self.B_0_vac, self.beta_vac)
 
         # Calculate diamagnetic mirror ratio
@@ -230,7 +230,7 @@ class Popcon():
 
         # Create masks for different regions
         mask_high_beta = self.n_20_grid > self.n_20_beta_limit
-        mask_high_heat_flux = self.q_w >= 5
+        mask_high_heat_flux = self.q_w >= Params.qw_limit
         mask_low_NWL = self.NWL < Params.min_NWL
         #mask_nbi_current_limit = I_NBI_required > max_nbi_current
 
@@ -551,10 +551,10 @@ class Popcon():
             f"{'R_dmag':>7} {'a0_abs':>7} {'a0_DCLC':>7} {'a0_nmfp':>7}"
             f"{'a0_min':>7} {'L':>6} {'V':>7} {'C':>7} {'P_fus':>7} {'P_NBI':>7} "
             f"{'NWL':>6} {'Q':>6} {'Limit':>6} {'q_w':>6} {'a_w':>6} {'B_w':>6} "
-            f"{'ion_flux_w':>12} {'ero_rate_w':>12} {'r_L':>8} {'a_end':>8}")
+            f"{'ion_flux_w':>12} {'ero_rate_w':>12} {'r_L':>8} {'a_end':>8} {'nu':>6}")
         print(f"{'[keV]':>6} {'[e20]':>6} {'[$M/yr/m^3]':>8} {'':>6} {'':>6} {'[T]':>6} {'':>6} {'[m]':>7} {'[m]':>7} {'[m]':>7}"
             f"{'[m]':>7} {'[m]':>6} {'[m³]':>7} {'[s]':>7} {'[MW]':>7} {'[MW]':>7} "
-            f"{'[MW/m²]':>6} {'':>5} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>12} {'[mm/yr]':>12} {'cm':>8} {'m:>8'}")
+            f"{'[MW/m²]':>6} {'':>5} {'':>6} {'[MW/m^2]':>6} {'[m]':>6} {'[T]':>6} {"[1e20/m^2*s]":>12} {'[mm/yr]':>12} {'cm':>8} {'m':>8} {'N/A':>6}")
         print("-"*100)
 
         for E_b100_target, n_20_target in test_points:
@@ -568,9 +568,9 @@ class Popcon():
                   f"{self.R_M_dmag[i,j]:7.2f} {self.a_0_dict['abs'][i,j]:7.4f} {self.a_0_dict['DCLC'][i,j]:7.4f}"
                   f"{self.a_0_dict['N MFP'][i,j]:7.4f} {self.a_0_min[i,j]:7.4f} {self.L_mirror[i,j]:6.2f} "
                   f"{self.V_plasma[i,j]:7.3f} {self.C_loss[i,j]:7.4f} {self.P_fus[i,j]:7.2f} {self.P_nbi[i,j]:7.2f} "
-                  f"{self.NWL[i,j]:6.3f} {self.Q_phy[i,j]:6.3f} {self.a_0_min_limit[i,j]:>6} {self.q_w[i,j]:6.1f}"
+                  f"{self.NWL[i,j]:6.3f} {self.Q_phy[i,j]:6.3f} {self.a_0_min_limit[i,j]:>6} {self.q_w[i,j]:6.2f}"
                   f"{self.a_w[i,j]:6.3} {self.B_w[i,j]:6.3} {self.ion_flux_target[i,j]/1e20:12.2f}"
-                  f"{self.ero_rate_w[i,j]:12.4f} {ion_gyro_rad_cm:8.3f} {a_end:8.5f}") 
+                  f"{self.ero_rate_w[i,j]:12.4f} {ion_gyro_rad_cm:8.3f} {a_end:8.5f} {self.collisionality[i,j]:6.1e}") 
         return
 
 if __name__ == "__main__":

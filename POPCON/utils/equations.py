@@ -182,14 +182,14 @@ def calculate_beta_vac(n_20, E_b_100keV, B_central):
     return 3.08*n_20*E_b_100keV/B_central**2
     
 
-def calculate_B0_with_diamagnetic(B_central, beta_local):
+def calculate_B0_with_diamagnetic(B_central, beta_vac):
     """
     B₀ = B_central × √(1 - β)
 
     CRITICAL: Diamagnetic effect REDUCES the on-axis field!
     The plasma diamagnetic current weakens the central field.
     """
-    B_0 = B_central * np.sqrt(1 - beta_local)
+    B_0 = B_central * np.sqrt(1 - beta_vac)
     return B_0
 
 def calculate_beta_limit(E_b_100keV, B_central, beta_c):
@@ -1013,7 +1013,7 @@ def tape_req_simple(a_0_min, a_0_FLR_mirror, B_central, B_max,
 # Constants for isotope production
 AVOGADRO = 6.022e23  # atoms/mol
 SECONDS_PER_YEAR = 3600 * 24 * 365  # s/yr
-NEUTRONS_PER_MW_PER_S = 1e6 / (17.6 * 1.6e-13)  # ~3.55e17 n/s/MW fusion
+NEUTRONS_PER_MW_PER_S = 1e6 / (17.6 * 1.6e-13)  # ~3.55e17 n/s/MW fusion from Pfus/Efus
 
 # Isotope data: sorted by $/MW/yr (most valuable first)
 # Values from corrected financial model spreadsheet

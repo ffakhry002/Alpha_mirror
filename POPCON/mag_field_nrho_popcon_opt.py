@@ -17,7 +17,7 @@ from POPCON.popcon import Popcon
 from POPCON.params import Params
 
 
-def get_idx_max_rev_per_vol(popcon, max_pnbi=Params.max_nbi_power_ftop, min_nwl=Params.min_NWL)-> tuple:
+def get_idx_max_rev_per_vol(popcon, max_pnbi, min_nwl)-> tuple:
         """
         Returns the indices of the valid operating point in the POPCON
         that has the highest revenue per volume. 
@@ -33,7 +33,7 @@ def get_idx_max_rev_per_vol(popcon, max_pnbi=Params.max_nbi_power_ftop, min_nwl=
         i, j = np.unravel_index(np.argmax(rev_per_vol_valid), rev_per_vol_valid.shape)
         return i, j
 
-def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4., max_pnbi=15., min_nwl=0.5):
+def get_popcon_df(B_0, B_m, N_rho, min_rm_vac=4., max_pnbi=Params.max_nbi_power_ftop, min_nwl=Params.min_NWL):
     """
     Returns dictionary of params of interest associated with popcon
     If no valid solution exists, dict contains NaN values
@@ -185,7 +185,7 @@ def make_histograms(df):
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=axs[-1], label=r'$R/V_p\ [\$\mathrm{M/yr/m^{3}}]$')
-    cbar.set_ticks(np.arange(0, 5.5e3, 500))
+    cbar.set_ticks(np.arange(0, Params.max_rev_per_vol/1e6, 500))
 
     plt.tight_layout()
     plt.show()
@@ -201,8 +201,8 @@ if __name__=="__main__":
                     help='Whether to bypass and overwrite saved results (default False)')
     args = parser.parse_args()
     plt.rcParams['font.size'] = 11
-    B_0_scan = np.arange(2.5, 5.75, 0.25)
-    B_m_scan = np.arange(17, 23, 1)
+    B_0_scan = np.arange(2.5, 6.5, 0.25)
+    B_m_scan = np.arange(19, 26, 1)
     N_rho_scan = np.array([10, 12, 15, 18])
     df = popcon_scan(B_0_scan, B_m_scan, N_rho_scan, args.filename, bypass=args.bypass)
     fig = make_histograms(df)
