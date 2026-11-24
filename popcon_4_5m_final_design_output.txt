@@ -1,0 +1,27 @@
+✓ Loaded 100 D-T reactivity data points
+  Temperature range: 1.0 - 1000.0 keV
+Creating Beam-Target Fusion POPCON plots with frustum geometry...
+Using B_max=22.0T, B_central=5.25T
+Vacuum mirror ratio R_M_vac = 4.19
+Testing voltage calculation: BEAM voltage should be between 2 to 3
+BEAM voltage required: 0.21555928744594754
+
+Testing design points...
+
+Creating main beam-target POPCON...
+Calculating beam-target physics for 500×500 grid points...
+Calculating capacity factor for grid lifetime...
+Max collisionality: 1.383604817323121
+Min collisionality: 1.7625227719200848e-05
+
+====================================================================================================
+====================================================================================================
+
+   E_b   n_20    Rev/V     CF        β    B_0 R_dmag  a0_abs a0_DCLC a0_nmfp a0_min      L       V       C   P_fus   P_NBI    NWL      Q  Limit    q_w    a_w    R_w    B_w   ion_flux_w   ero_rate_w      r_L      a_m     nu
+ [keV]  [e20] [$M/yr/m^3]                  [T]            [m]     [m]     [m]    [m]    [m]    [m³]     [s]    [MW]    [MW] [MW/m²]              [MW/m^2]    [m]      m    [T] [1e20/m^2*s]      [mm/yr]       cm    [m]    N/A
+----------------------------------------------------------------------------------------------------
+  55.0   2.40      3472 0.660  0.147  4.848    4.54  0.0930  0.0937 0.0984  0.1000   4.50   0.092  0.1293    2.31   15.73  0.673  0.147    eng   3.45  0.82  0.948 0.0721         4.22      0.8484    0.781  0.047 9.6e-05
+  60.0   2.40      3477 0.707  0.161  4.810    4.57  0.0971  0.0986 0.0984  0.1000   4.50   0.092  0.1302    2.41   14.94  0.699  0.161    eng   3.46 0.799   0.93 0.0753         3.87      0.7181    0.822  0.047 8.1e-05
+  60.6   2.54      3481 0.687  0.172  4.776    4.61  0.0919  0.0998 0.0923  0.1000   4.50   0.092  0.1303    2.73   16.76  0.791  0.163    eng   3.93 0.794  0.926 0.0757         4.35      0.7995    0.832  0.047 8.4e-05
+  59.0   2.45      3477 0.690  0.161  4.808    4.58  0.0943  0.0978 0.0963  0.1000   4.50   0.092  0.1300    2.49   15.73  0.723  0.159    eng   3.61 0.802  0.933 0.0747         4.11      0.7741    0.815  0.047 8.5e-05
+Saved: /Users/henrycw/projects/mirror_vns/Alpha_mirror/figures/POPCON_n20_Eb_Frustum.png
